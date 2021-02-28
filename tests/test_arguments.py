@@ -1,0 +1,169 @@
+import array
+import struct
+import string
+import pytest
+
+from oscpython import arguments, ColorRGBA, Infinitum
+
+
+INT32_MAX = (1 << 31) - 1
+INT32_MIN = (1 << 31) * -1
+
+INT64_MAX = (1 << 63) - 1
+INT64_MIN = (1 << 63) * -1
+
+FLOAT32_EXP_BITS = 8
+FLOAT32_FRAC_BITS = 23
+FLOAT64_EXP_BITS = 11
+FLOAT64_FRAC_BITS = 52
+
+
+def iter_int_values(int_min, int_max):
+    i = 0
+    while i < int_max:
+        for j in range(128):
+            k = i + j
+            if k > int_max:
+                break
+            yield k
+            yield -k
+        if i == 0:
+            i = 1
+        else:
+            i = i << 1
+    yield int_min
+    yield int_max
+
+def iter_float_values(typecode, exp_bits, frac_bits):
+    exp = (1 << exp_bits) - 1
+    frac = 1 / ((1 << frac_bits) - 1)
+    a = array.array(typecode, [0, 0])
+    for i in range(exp):
+        for j in range(frac_bits):
+            k = (1 << j) * frac
+            k += i
+            a[0] = k
+            a[1] = -k
+            yield a[0]
+            yield a[1]
+
+def check_arg_packet(arg, struct_fmt, allow_padding=False):
+    arg_bytes = arg.build_packet()
+    arg_byte_len = len(arg_bytes)
+    assert arg_byte_len % 4 == 0
+    if allow_padding:
+        struct_calc_len = struct.calcsize(struct_fmt)
+        if arg_byte_len > struct_calc_len:
+            diff = arg_byte_len - struct_calc_len
+            # struct_fmt = ''.join([struct_fmt, []])
+            struct_fmt = f'{struct_fmt}{diff}x'
+    unpacked = struct.unpack(struct_fmt, arg_bytes)[0]
+    assert unpacked == arg.get_pack_value()
+    return arg_bytes
+
+def test_int_args():
+    int32_fmt = '>i'
+    int64_fmt = '>q'
+    for i in iter_int_values(INT32_MIN, INT32_MAX):
+        cls = arguments.Argument.get_argument_for_value(i)
+        assert cls is arguments.Int32Argument
+        arg = cls(value=i)
+        check_arg_packet(arg, int32_fmt)
+
+    for i in iter_int_values(INT64_MIN, INT64_MAX):
+        if i == 0:
+            continue
+        elif i < 0 and i >= INT32_MIN:
+            i += INT32_MIN
+        elif i > 0 and i <= INT32_MAX:
+            i += INT32_MAX
+        cls = arguments.Argument.get_argument_for_value(i)
+        if cls is not arguments.Int64Argument:
+            print(i)
+        assert cls is arguments.Int64Argument
+        arg = cls(value=i)
+        check_arg_packet(arg, int64_fmt)
+
+def test_float_args():
+    float32_fmt = '>f'
+    float64_fmt = '>d'
+
+    for f in iter_float_values('f', FLOAT32_EXP_BITS, FLOAT32_FRAC_BITS):
+        if f == 0:
+            cls = arguments.Float32Argument
+        else:
+            cls = arguments.Argument.get_argument_for_value(f)
+            assert cls is arguments.Float32Argument
+        arg = cls(value=f)
+        check_arg_packet(arg, float32_fmt)
+
+    for f in iter_float_values('d', FLOAT64_EXP_BITS, FLOAT64_FRAC_BITS):
+        arg = arguments.Float64Argument(value=f)
+        check_arg_packet(arg, float64_fmt)
+
+def test_string_args():
+    def iter_chars():
+        while True:
+            yield from string.printable
+    def get_strings(count, length):
+        it = iter_chars()
+        for i in range(count):
+            r = []
+            for j in range(length):
+                r.append(next(it))
+            yield ''.join(r)
+
+    for length in range(1, 30):
+        for s in get_strings(20, length):
+
+            # StringArgument
+            cls = arguments.Argument.get_argument_for_value(s)
+            assert cls is arguments.StringArgument
+            arg = cls(value=s)
+            check_arg_packet(arg, f'>{length}s', allow_padding=True)
+
+
+            #BlobArgument
+            b = s.encode()
+            cls = arguments.Argument.get_argument_for_value(b)
+            assert cls is arguments.BlobArgument
+            arg = cls(value=b)
+
+            struct_fmt = f'>H{length}s'
+            arg_bytes = arg.build_packet()
+            arg_byte_len = len(arg_bytes)
+            assert arg_byte_len % 4 == 0
+
+            struct_calc_len = struct.calcsize(struct_fmt)
+            if arg_byte_len > struct_calc_len:
+                diff = arg_byte_len - struct_calc_len
+                struct_fmt = f'{struct_fmt}{diff}x'
+            unpacked_count, unpacked_bytes = struct.unpack(struct_fmt, arg_bytes)
+            assert unpacked_count == len(arg.value)
+            assert unpacked_bytes == arg.value
+
+def test_const_args():
+    const_map = [
+        (True, arguments.TrueArgument),
+        (False, arguments.FalseArgument),
+        (None, arguments.NilArgument),
+        (Infinitum(), arguments.InfinitumArgument),
+    ]
+    for value, argcls in const_map:
+        cls = arguments.Argument.get_argument_for_value(value)
+        assert cls is argcls
+        arg = cls(value=value)
+        with pytest.raises(ValueError) as excinfo:
+            arg.build_packet()
+        assert 'Cannot pack empty argument' in str(excinfo.value)
+
+def test_color_args():
+    for r, g, b, a in zip(range(255), range(255), range(255), range(255)):
+        color = ColorRGBA(r=r, g=g, b=b, a=a)
+        cls = arguments.Argument.get_argument_for_value(color)
+        assert cls is arguments.RGBArgument
+        arg = cls(value=color)
+        arg_bytes = check_arg_packet(arg, '>q')
+        unpacked = struct.unpack('>q', arg_bytes)[0]
+        unpacked_color = ColorRGBA.from_uint64(unpacked)
+        assert unpacked_color == color
