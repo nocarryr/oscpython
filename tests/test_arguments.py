@@ -2,8 +2,9 @@ import array
 import struct
 import string
 import pytest
+import datetime
 
-from oscpython import arguments, ColorRGBA, Infinitum
+from oscpython import arguments, ColorRGBA, Infinitum, TimeTag
 
 
 INT32_MAX = (1 << 31) - 1
@@ -167,3 +168,31 @@ def test_color_args():
         unpacked = struct.unpack('>q', arg_bytes)[0]
         unpacked_color = ColorRGBA.from_uint64(unpacked)
         assert unpacked_color == color
+
+def test_timestamp_args():
+    now_dt = datetime.datetime.utcnow()
+    for second in range(59):
+        for microsecond in range(100):
+            now_dt = now_dt.replace(second=second, microsecond=microsecond)
+            now_tt = TimeTag.from_datetime(now_dt)
+            assert now_dt == now_tt.to_datetime()
+
+            cls = arguments.Argument.get_argument_for_value(now_dt)
+            assert cls is arguments.TimeTagArgument
+
+            cls = arguments.Argument.get_argument_for_value(now_tt)
+            assert cls is arguments.TimeTagArgument
+
+            arg_dt = cls(value=now_dt)
+            arg_bytes = arg_dt.build_packet()
+            assert len(arg_bytes) % 4 == 0
+            unpacked_dt = struct.unpack('>q', arg_bytes)[0]
+            tt1 = TimeTag.from_uint64(unpacked_dt)
+
+            arg_tt = cls(value=now_tt)
+            arg_bytes = arg_tt.build_packet()
+            assert len(arg_bytes) % 4 == 0
+            unpacked_tt = struct.unpack('>q', arg_bytes)[0]
+            tt2 = TimeTag.from_uint64(unpacked_tt)
+
+            assert tt1 == tt2
