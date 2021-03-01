@@ -298,4 +298,4 @@ for _cls in ARGUMENTS:
     if _cls.py_type not in ARGUMENTS_BY_TYPE:
         ARGUMENTS_BY_TYPE[_cls.py_type] = {}
     ARGUMENTS_BY_TYPE[_cls.py_type][_cls.__name__] = _cls
-ARGUMENTS_BY_TYPE[datetime.datetime] = TimeTagArgument
+ARGUMENTS_BY_TYPE[datetime.datetime] = {TimeTagArgument.__name__:TimeTagArgument}
