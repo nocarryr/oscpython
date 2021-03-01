@@ -89,17 +89,15 @@ class Argument:
         if not len(packing.format):
             raise ValueError('Cannot pack empty argument')
         value = self.get_pack_value()
-        if not isinstance(value, (list, tuple)):
-            value = [value]
         return struct.pack(f'>{packing.format}', *value)
 
-    def get_pack_value(self) -> Any:
-        """Get the value to be packed using :func:`struct.pack`
+    def get_pack_value(self) -> Tuple[Any]:
+        """Get the value(s) to be packed using :func:`struct.pack`
         """
         value = self.value
         if isinstance(value, str):
             value = value.encode()
-        return value
+        return (value,)
 
 @dataclass
 class Int32Argument(Argument):
@@ -141,7 +139,7 @@ class StringArgument(Argument):
 
     def get_struct_fmt(self) -> str:
         value = self.get_pack_value()
-        length = get_padded_size(value, add_stop_byte=True)
+        length = get_padded_size(value[0], add_stop_byte=True)
         return f'{length}s'
 
 
@@ -191,11 +189,11 @@ class TimeTagArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, (TimeTag, datetime.datetime))
 
-    def get_pack_value(self) -> int:
+    def get_pack_value(self) -> Tuple[int]:
         value = self.value
         if isinstance(value, datetime.datetime):
             value = TimeTag.from_datetime(value)
-        return value.to_uint64()
+        return (value.to_uint64(),)
 
 @dataclass
 class Float64Argument(Float32Argument):
@@ -230,8 +228,8 @@ class RGBArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, ColorRGBA)
 
-    def get_pack_value(self) -> int:
-        return self.value.to_uint64()
+    def get_pack_value(self) -> Tuple[int]:
+        return (self.value.to_uint64(),)
 
 @dataclass
 class BoolArgument(Argument):

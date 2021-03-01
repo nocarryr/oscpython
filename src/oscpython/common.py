@@ -33,7 +33,7 @@ def get_padded_size(s: BytesOrString, add_stop_byte: bool = True) -> int:
 class StructPacking:
     """Helper for zipping struct format strings and values
     """
-    value: Any
+    value: Tuple[Any]
     format: str
 
 @dataclass

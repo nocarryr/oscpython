@@ -22,16 +22,16 @@ class TypeTags(StringArgument):
         """
         self.tags.append(tag)
 
-    def get_pack_value(self) -> Any:
-        return ',{}'.format(''.join(self.tags)).encode()
+    def get_pack_value(self) -> Tuple[bytes]:
+        return (',{}'.format(''.join(self.tags)).encode(),)
 
 @dataclass
 class Address(StringArgument):
     """An OSC address pattern
     """
     pattern: str = '/'
-    def get_pack_value(self) -> Any:
-        return self.pattern.encode()
+    def get_pack_value(self) -> Tuple[bytes]:
+        return (self.pattern.encode(),)
 
 @dataclass
 class Packet:
@@ -104,7 +104,7 @@ class Message(Packet):
         all_packs.extend(packs)
 
         struct_fmt = '>{}'.format(''.join([pack.format for pack in all_packs]))
-        struct_args = [pack.value for pack in all_packs]
+        struct_args = [v for pack in all_packs for v in pack.value]
         return struct.pack(struct_fmt, *struct_args)
 
 

@@ -58,7 +58,7 @@ def check_arg_packet(arg, struct_fmt, allow_padding=False):
             # struct_fmt = ''.join([struct_fmt, []])
             struct_fmt = f'{struct_fmt}{diff}x'
     unpacked = struct.unpack(struct_fmt, arg_bytes)[0]
-    assert unpacked == arg.get_pack_value()
+    assert unpacked == arg.get_pack_value()[0]
     return arg_bytes
 
 def test_int_args():
