@@ -5,6 +5,7 @@ import pytest
 from oscpython import (
     Packet, Message, Bundle, TimeTag, ColorRGBA, Infinitum
 )
+from oscpython import arguments
 
 @pytest.fixture
 def message_args():
@@ -44,6 +45,18 @@ def test_message_arguments(message_args):
     all_arg_bytes = msg_bytes[typetags_length+8:]
     print(f'all_arg_bytes = {all_arg_bytes}')
     check_message_args(msg, all_arg_bytes)
+
+    parsed, remaining = Packet.parse(msg.build_packet())
+    assert parsed.address == msg.address
+    assert len(parsed.arguments) == len(msg.arguments)
+    for parg, marg in zip(parsed.arguments, msg.arguments):
+        assert parg.__class__ is marg.__class__
+        if isinstance(parg, (arguments.Float32Argument, arguments.Float64Argument)):
+            assert parg.value == pytest.approx(marg.value)
+        elif isinstance(parg, arguments.TimeTagArgument):
+            assert parg.get_pack_value() == marg.get_pack_value()
+        else:
+            assert parg == marg
 
 
 def test_bundle(message_args):
@@ -111,3 +124,21 @@ def test_bundle(message_args):
             check_message_args(msg, all_arg_bytes)
 
         assert msg.build_packet() == msg_bytes
+
+    parsed, remaining = Packet.parse(bun_bytes)
+    print(f'parsed={parsed}, remaining={remaining}')
+    assert parsed.timetag == bun.timetag
+    assert len(parsed.packets) == len(bun.packets)
+    for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
+        assert parsed_pkt.address == bun_pkt.address
+        assert parsed_pkt.parent_index == bun_pkt.parent_index
+        assert parsed_pkt.parent_bundle is parsed
+        assert len(parsed_pkt.arguments) == len(bun_pkt.arguments)
+        for parg, marg in zip(parsed_pkt.arguments, bun_pkt.arguments):
+            assert parg.__class__ is marg.__class__
+            if isinstance(parg, (arguments.Float32Argument, arguments.Float64Argument)):
+                assert parg.value == pytest.approx(marg.value)
+            elif isinstance(parg, arguments.TimeTagArgument):
+                assert parg.get_pack_value() == marg.get_pack_value()
+            else:
+                assert parg == marg

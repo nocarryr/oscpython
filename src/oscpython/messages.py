@@ -11,6 +11,12 @@ from oscpython.arguments import TimeTagArgument, StringArgument
 
 __all__ = ('Address', 'Packet', 'Message', 'Bundle')
 
+class ParseError(Exception):
+    def __init__(self, packet_data: bytes):
+        self.packet_data = packet_data
+    def __str__(self):
+        return f'Could not parse data: {self.packet_data}'
+
 @dataclass
 class TypeTags(StringArgument):
     """Container for OSC typetags
@@ -36,6 +42,9 @@ class TypeTags(StringArgument):
 
     def __len__(self):
         return len(self.tags)
+
+    def __iter__(self):
+        yield from self.tags
 
 @dataclass
 class Address(StringArgument):
@@ -63,6 +72,22 @@ class Packet:
     """Index of the packet within the :attr:`parent_bundle`
     """
 
+    @classmethod
+    def parse(cls, packet_data: bytes) -> Tuple['Packet', bytes]:
+        """Parse OSC-formatted bytes and build a :class:`Message` or :class:`Bundle`
+
+        Returns a tuple of:
+            :class:`Packet`
+                The parsed object
+            :class:`bytes`
+                Any remaining bytes after the packet data
+        """
+        if packet_data.startswith(b'/'):
+            return Message.parse(packet_data)
+        elif packet_data.startswith(b'#bundle\x00'):
+            return Bundle.parse(packet_data)
+        else:
+            raise ParseError(packet_data)
 
 @dataclass
 class Message(Packet):
@@ -87,11 +112,18 @@ class Message(Packet):
 
     def add_argument(self, value: Any) -> Argument:
         """Create an :class:`~.arguments.Argument` from the given value
-        and add it to the :attr:`arguments` list
+        and add it to the :attr:`arguments` list.
+
+        If the value is an instance of :class:`~.arguments.Argument` it will
+        be added without copying
         """
         ix = len(self.arguments)
-        arg_cls = Argument.get_argument_for_value(value)
-        arg = arg_cls(value=value, index=ix)
+        if isinstance(value, Argument):
+            arg = value
+            arg.index = ix
+        else:
+            arg_cls = Argument.get_argument_for_value(value)
+            arg = arg_cls(value=value, index=ix)
         self.arguments.append(arg)
         return arg
 
@@ -121,6 +153,19 @@ class Message(Packet):
         struct_args = [v for pack in all_packs for v in pack.value]
         return struct.pack(struct_fmt, *struct_args)
 
+    @classmethod
+    def parse(cls, packet_data: bytes) -> Tuple['Message', bytes]:
+        if not packet_data.startswith(b'/'):
+            raise ParseError(packet_data)
+        address, packet_data = unpack_str_from_bytes(packet_data)
+        args = []
+        if packet_data.startswith(b','):
+            typetags, packet_data = TypeTags.parse(packet_data)
+            for tag in typetags:
+                arg_cls = ARGUMENTS_BY_TAG[tag]
+                arg, packet_data = arg_cls.parse(packet_data)
+                args.append(arg)
+        return (cls.create(address, *args), packet_data)
 
 @dataclass
 class Bundle(Packet):
@@ -159,3 +204,24 @@ class Bundle(Packet):
             packet_data.append(struct.pack('>i', len(_packet_data)))
             packet_data.append(_packet_data)
         return b''.join(packet_data)
+
+    @classmethod
+    def parse(cls, packet_data: bytes) -> Tuple['Bundle', bytes]:
+        if not packet_data.startswith(b'#bundle\x00'):
+            raise ParseError(packet_data)
+
+        packet_data = packet_data[8:]
+        tt, packet_data = TimeTagArgument.parse(packet_data)
+        bun = cls(timetag=tt.value)
+
+        while len(packet_data):
+            length = struct.unpack('>i', packet_data[:4])[0]
+            packet_data = packet_data[4:]
+            if packet_data[0:1] not in (b'/', b'#'):
+                break
+            packet, remaining = Packet.parse(packet_data)
+            bun.add_packet(packet)
+            packet_data = packet_data[length:]
+            # assert remaining == packet_data
+
+        return (bun, packet_data)
