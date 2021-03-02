@@ -43,7 +43,7 @@ class Packet:
     the packet, the destination host
     """
 
-    parent_bundle: Optional['Bundle'] = None
+    parent_bundle: Optional['Bundle'] = field(default=None, repr=False)
     """Instance of :class:`Bundle` that contains the packet (if any)
     """
 
