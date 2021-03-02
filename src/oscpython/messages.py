@@ -23,7 +23,12 @@ class TypeTags(StringArgument):
         self.tags.append(tag)
 
     def get_pack_value(self) -> Tuple[bytes]:
+        if not len(self):
+            return (b'',)
         return (',{}'.format(''.join(self.tags)).encode(),)
+
+    def __len__(self):
+        return len(self.tags)
 
 @dataclass
 class Address(StringArgument):
@@ -100,8 +105,10 @@ class Message(Packet):
             pack = arg.pack()
             if len(pack.format):
                 packs.append(pack)
-        all_packs.append(typetags.pack())
-        all_packs.extend(packs)
+        if len(typetags):
+            all_packs.append(typetags.pack())
+        if len(packs):
+            all_packs.extend(packs)
 
         struct_fmt = '>{}'.format(''.join([pack.format for pack in all_packs]))
         struct_args = [v for pack in all_packs for v in pack.value]
