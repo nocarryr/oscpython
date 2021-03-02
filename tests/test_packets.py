@@ -3,7 +3,6 @@ import datetime
 from oscpython import (
     Packet, Message, Bundle, TimeTag, ColorRGBA, Infinitum
 )
-from oscpython.common import get_padded_size
 
 def test_message_arguments():
     now = datetime.datetime.utcnow()
@@ -12,9 +11,8 @@ def test_message_arguments():
         1, 1.2, 'a string', b'a blob', True, False, None, Infinitum,
         ColorRGBA(99, 100, 101, 102), now,
     )
-    typetags_expected = b',ifsbTFNIrt'
-    typetags_length = get_padded_size(typetags_expected)
-    typetags_expected = typetags_expected.ljust(typetags_length, b'\x00')
+    typetags_expected = b',ifsbTFNIrt\x00'
+    typetags_length = len(typetags_expected)
 
     msg = Message.create(address, *arg_values)
     msg_bytes = msg.build_packet()
