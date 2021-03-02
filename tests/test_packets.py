@@ -1,17 +1,23 @@
 import datetime
+import pytest
 
 from oscpython import (
     Packet, Message, Bundle, TimeTag, ColorRGBA, Infinitum
 )
 
-def test_message_arguments():
+@pytest.fixture
+def message_args():
     now = datetime.datetime.utcnow()
-    address = '/foo'
     arg_values = (
         1, 1.2, 'a string', b'a blob', True, False, None, Infinitum,
         ColorRGBA(99, 100, 101, 102), now,
     )
     typetags_expected = b',ifsbTFNIrt\x00'
+    return arg_values, typetags_expected
+
+def test_message_arguments(message_args):
+    address = '/foo'
+    arg_values, typetags_expected = message_args
     typetags_length = len(typetags_expected)
 
     msg = Message.create(address, *arg_values)
