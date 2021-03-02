@@ -125,7 +125,7 @@ class TimeTag:
     def from_uint64(cls, value: int) -> 'TimeTag':
         kw = {
             'seconds':value >> 32,
-            'fraction':value % 0xFFFFFFFF,
+            'fraction':value & 0xFFFFFFFF,
         }
         return cls(**kw)
     def to_uint64(self) -> int:
