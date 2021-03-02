@@ -13,7 +13,7 @@ TWO_TO_THE_32 = 2 ** 32
 TWO_TO_THE_32_DIV = 1 / TWO_TO_THE_32
 
 __all__ = (
-    'get_padded_size', 'StructPacking', 'Client',
+    'get_padded_size', 'unpack_str_from_bytes', 'StructPacking', 'Client',
     'TimeTag', 'ColorRGBA', 'Infinitum',
 )
 
@@ -27,6 +27,13 @@ def get_padded_size(s: BytesOrString, add_stop_byte: bool = True) -> int:
             length += 4
         return length
     return (len(s) // 4 + 1) * 4
+
+def unpack_str_from_bytes(b: bytes) -> Tuple[str, bytes]:
+    stop_ix = b.index(b'\x00', 1)
+    s = b[:stop_ix]
+    psize = get_padded_size(s)
+    b = b[psize:]
+    return s.decode(), b
 
 @dataclass
 class StructPacking:

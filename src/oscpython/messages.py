@@ -27,6 +27,13 @@ class TypeTags(StringArgument):
             return (b'',)
         return (',{}'.format(''.join(self.tags)).encode(),)
 
+    @classmethod
+    def parse(cls, data: bytes) -> Tuple['StringArgument', bytes]:
+        s, remaining = unpack_str_from_bytes(data)
+        assert s.startswith(',')
+        tags = list(s.lstrip(','))
+        return (cls(tags=tags), remaining)
+
     def __len__(self):
         return len(self.tags)
 

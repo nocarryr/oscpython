@@ -99,6 +99,32 @@ class Argument:
             value = value.encode()
         return (value,)
 
+    @classmethod
+    def parse(cls, data: bytes) -> Tuple['Argument', bytes]:
+        """Parse OSC-formatted data and create an :class:`Argument`
+
+        Returns a tuple of:
+            :class:`Argument`
+                Argument containing the parsed :attr:`value`
+            :class:`bytes`
+                Any remaining bytes after the argument data
+        """
+        kw = {}
+        if len(cls.struct_fmt):
+            fmt = f'>{cls.struct_fmt}'
+            length = struct.calcsize(fmt)
+            _data = data[:length]
+            data = data[length:]
+            value = struct.unpack(fmt, _data)
+            if len(value) == 1:
+                value = value[0]
+            kw['value'] = cls._transform_parsed_value(value)
+        return (cls(**kw), data)
+
+    @classmethod
+    def _transform_parsed_value(cls, value: Any) -> Any:
+        return value
+
 @dataclass
 class Int32Argument(Argument):
     """16-bit integer argument
@@ -142,6 +168,12 @@ class StringArgument(Argument):
         length = get_padded_size(value[0], add_stop_byte=True)
         return f'{length}s'
 
+    @classmethod
+    def parse(cls, data: bytes) -> Tuple['StringArgument', bytes]:
+        s, remaining = unpack_str_from_bytes(data)
+        value = cls._transform_parsed_value(s)
+        return (cls(value=s), remaining)
+
 
 @dataclass
 class BlobArgument(Argument):
@@ -165,6 +197,17 @@ class BlobArgument(Argument):
         length = get_padded_size(value, add_stop_byte=False)
         length -= 2
         return f'H{length}s'
+
+    @classmethod
+    def parse(cls, data: bytes) -> Tuple['BlobArgument', bytes]:
+        length = struct.unpack('>H', data[:2])[0]
+        padded_length = get_padded_size(data[:length+2], add_stop_byte=False)
+        value = struct.unpack(f'>{length}s', data[2:length+2])
+        if len(value) == 1:
+            value = value[0]
+        value = cls._transform_parsed_value(value)
+        remaining = data[padded_length:]
+        return (cls(value=value), remaining)
 
 @dataclass
 class Int64Argument(Int32Argument):
@@ -194,6 +237,10 @@ class TimeTagArgument(Argument):
         if isinstance(value, datetime.datetime):
             value = TimeTag.from_datetime(value)
         return (value.to_uint64(),)
+
+    @classmethod
+    def _transform_parsed_value(cls, value: int) -> TimeTag:
+        return TimeTag.from_uint64(value)
 
 @dataclass
 class Float64Argument(Float32Argument):
@@ -230,6 +277,10 @@ class RGBArgument(Argument):
 
     def get_pack_value(self) -> Tuple[int]:
         return (self.value.to_uint64(),)
+
+    @classmethod
+    def _transform_parsed_value(cls, value: int) -> ColorRGBA:
+        return ColorRGBA.from_uint64(value)
 
 @dataclass
 class BoolArgument(Argument):

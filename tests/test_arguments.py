@@ -70,6 +70,8 @@ def test_int_args():
         assert cls is arguments.Int32Argument
         arg = cls(value=i)
         check_arg_packet(arg, int32_fmt)
+        parsed, _ = cls.parse(arg.build_packet())
+        assert parsed == arg
 
     for i in iter_int_values(INT64_MIN, INT64_MAX):
         if i == 0:
@@ -84,6 +86,8 @@ def test_int_args():
         assert cls is arguments.Int64Argument
         arg = cls(value=i)
         check_arg_packet(arg, int64_fmt)
+        parsed, _ = cls.parse(arg.build_packet())
+        assert parsed == arg
 
 def test_float_args():
     float32_fmt = '>f'
@@ -97,10 +101,14 @@ def test_float_args():
             assert cls is arguments.Float32Argument
         arg = cls(value=f)
         check_arg_packet(arg, float32_fmt)
+        parsed, _ = cls.parse(arg.build_packet())
+        assert parsed == arg
 
     for f in iter_float_values('d', FLOAT64_EXP_BITS, FLOAT64_FRAC_BITS):
         arg = arguments.Float64Argument(value=f)
         check_arg_packet(arg, float64_fmt)
+        parsed, _ = arguments.Float64Argument.parse(arg.build_packet())
+        assert parsed == arg
 
 def test_string_args():
     def iter_chars():
@@ -122,6 +130,8 @@ def test_string_args():
             assert cls is arguments.StringArgument
             arg = cls(value=s)
             check_arg_packet(arg, f'>{length}s', allow_padding=True)
+            parsed, _ = cls.parse(arg.build_packet())
+            assert parsed == arg
 
 
             #BlobArgument
@@ -142,6 +152,9 @@ def test_string_args():
             unpacked_count, unpacked_bytes = struct.unpack(struct_fmt, arg_bytes)
             assert unpacked_count == len(arg.value)
             assert unpacked_bytes == arg.value
+
+            parsed, _ = cls.parse(arg.build_packet())
+            assert parsed == arg
 
 def test_const_args():
     const_map = [
@@ -168,6 +181,9 @@ def test_color_args():
         unpacked = struct.unpack('>q', arg_bytes)[0]
         unpacked_color = ColorRGBA.from_uint64(unpacked)
         assert unpacked_color == color
+
+        parsed, _ = cls.parse(arg.build_packet())
+        assert parsed == arg
 
 def test_timestamp_args():
     now_dt = datetime.datetime.utcnow()
@@ -196,3 +212,10 @@ def test_timestamp_args():
             tt2 = TimeTag.from_uint64(unpacked_tt)
 
             assert tt1 == tt2
+            assert arg_dt.get_pack_value() == arg_tt.get_pack_value()
+
+            parsed_dt, _ = cls.parse(arg_dt.build_packet())
+            parsed_tt, _ = cls.parse(arg_tt.build_packet())
+
+            assert parsed_tt.get_pack_value() == arg_tt.get_pack_value()
+            assert parsed_dt.get_pack_value() == arg_dt.get_pack_value()
