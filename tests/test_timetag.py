@@ -1,17 +1,15 @@
 import datetime
-import pytz
 
 from oscpython import TimeTag
 
-TZ = pytz.timezone('US/Central')
-UTC = pytz.utc
+UTC = datetime.timezone.utc
+TZ = datetime.datetime.now(UTC).astimezone().tzinfo
 
-EPOCH = UTC.localize(datetime.datetime(1970, 1, 1))
+EPOCH = datetime.datetime(1970, 1, 1, tzinfo=UTC)
 
 def test_dt():
-    dt_utc = datetime.datetime(2021, 2, 28, 9, 28, 13, 12345)
-    dt_utc = UTC.localize(dt_utc)
-    dt_local = TZ.normalize(dt_utc)
+    dt_utc = datetime.datetime(2021, 2, 28, 9, 28, 13, 12345, tzinfo=UTC)
+    dt_local = dt_utc.astimezone(TZ)
     ts1 = 1614504493.012345
 
     assert (dt_utc - EPOCH).total_seconds() == ts1
