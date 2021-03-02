@@ -6,7 +6,6 @@ import datetime
 
 NTP_EPOCH = datetime.datetime(1900, 1, 1)
 UNIX_EPOCH = datetime.datetime.utcfromtimestamp(0)
-TZ_OFFSET = datetime.datetime.fromtimestamp(0) - UNIX_EPOCH
 
 EPOCH_DIFF = UNIX_EPOCH - NTP_EPOCH
 EPOCH_DIFF_SECONDS = EPOCH_DIFF.total_seconds()
@@ -83,14 +82,14 @@ class TimeTag:
         """Create a :class:`datetime.datetime` in UTC
         """
         return datetime.datetime.utcfromtimestamp(self.to_epoch())
+
     def to_datetime(self) -> datetime.datetime:
         """Create a :class:`datetime.datetime` with the local timezone offset
 
         Note:
             The returned datetime is naive (tzinfo=None)
         """
-        dt = self.to_datetime_utc()
-        return dt + TZ_OFFSET
+        return datetime.datetime.fromtimestamp(self.to_epoch())
 
     @classmethod
     def from_float(cls, value: float) -> 'TimeTag':
