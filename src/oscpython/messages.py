@@ -134,11 +134,10 @@ class Bundle(Packet):
         """Construct a byte string for the bundle and the packets it contains
         """
         tt = TimeTagArgument(value=self.timetag)
-        ttpack = tt.pack()
 
         packet_data = [
             b'#bundle\x00',
-            struct.pack(f'>{ttpack.format}', ttpack.value),
+            tt.build_packet(),
         ]
 
         for packet in self.packets:
