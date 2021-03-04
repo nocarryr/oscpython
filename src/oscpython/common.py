@@ -157,7 +157,7 @@ class TimeTag:
     def to_epoch(self) -> float:
         """Return the values as a POSIX timestamp
         """
-        return self.float_seconds + EPOCH_DIFF_SECONDS
+        return self.float_seconds - EPOCH_DIFF_SECONDS
 
     def to_datetime_utc(self) -> datetime.datetime:
         """Create a :class:`datetime.datetime` in UTC
@@ -184,7 +184,7 @@ class TimeTag:
     def from_epoch(cls, seconds: float) -> 'TimeTag':
         """Create a :class:`TimeTag` from a POSIX timestamp
         """
-        return cls.from_float(seconds - EPOCH_DIFF_SECONDS)
+        return cls.from_float(seconds + EPOCH_DIFF_SECONDS)
 
     @classmethod
     def from_datetime(cls, dt: datetime.datetime) -> 'TimeTag':

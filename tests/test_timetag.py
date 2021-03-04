@@ -1,4 +1,5 @@
 import datetime
+import pytest
 
 from oscpython import TimeTag
 
@@ -15,7 +16,7 @@ def test_dt():
     assert (dt_utc - EPOCH).total_seconds() == ts1
 
     tt1 = TimeTag.from_epoch(ts1)
-    assert tt1.to_epoch() == ts1
+    assert tt1.to_epoch() == pytest.approx(ts1)
     assert tt1.to_datetime_utc() == dt_utc.replace(tzinfo=None)
     assert tt1.to_datetime() == dt_local.replace(tzinfo=None)
 
