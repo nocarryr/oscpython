@@ -140,7 +140,7 @@ def test_string_args():
             assert cls is arguments.BlobArgument
             arg = cls(value=b)
 
-            struct_fmt = f'>H{length}s'
+            struct_fmt = f'>i{length}s'
             arg_bytes = arg.build_packet()
             arg_byte_len = len(arg_bytes)
             assert arg_byte_len % 4 == 0

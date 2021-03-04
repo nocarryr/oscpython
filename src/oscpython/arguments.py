@@ -192,17 +192,17 @@ class BlobArgument(Argument):
 
     def get_struct_fmt(self) -> str:
         count, value = self.get_pack_value()
-        count_bytes = b'\x00\x00'
+        count_bytes = b'\x00\x00\x00\x00'
         value = b''.join([count_bytes, value])
         length = get_padded_size(value, add_stop_byte=False)
-        length -= 2
-        return f'H{length}s'
+        length -= 4
+        return f'i{length}s'
 
     @classmethod
     def parse(cls, data: bytes) -> Tuple['BlobArgument', bytes]:
-        length = struct.unpack('>H', data[:2])[0]
-        padded_length = get_padded_size(data[:length+2], add_stop_byte=False)
-        value = struct.unpack(f'>{length}s', data[2:length+2])
+        length = struct.unpack('>i', data[:4])[0]
+        padded_length = get_padded_size(data[:length+4], add_stop_byte=False)
+        value = struct.unpack(f'>{length}s', data[4:length+4])
         if len(value) == 1:
             value = value[0]
         value = cls._transform_parsed_value(value)
