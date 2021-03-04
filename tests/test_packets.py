@@ -146,7 +146,7 @@ def test_bundle(message_args):
     assert bun_bytes.startswith(b'#bundle\x00')
 
     tt_bytes = bun_bytes[8:16]
-    tt_val = struct.unpack('>q', tt_bytes)[0]
+    tt_val = struct.unpack('>Q', tt_bytes)[0]
     assert TimeTag.from_uint64(tt_val) == bun.timetag == TimeTag.Immediately
     assert tt_val == 1
 
