@@ -88,8 +88,7 @@ class Argument:
         packing = self.pack()
         if not len(packing.format):
             raise ValueError('Cannot pack empty argument')
-        value = self.get_pack_value()
-        return struct.pack(f'>{packing.format}', *value)
+        return struct.pack(f'>{packing.format}', *packing.value)
 
     def get_pack_value(self) -> Tuple[Any]:
         """Get the value(s) to be packed using :func:`struct.pack`
