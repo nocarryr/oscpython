@@ -90,13 +90,13 @@ class Argument:
             raise ValueError('Cannot pack empty argument')
         return struct.pack(f'>{packing.format}', *packing.value)
 
-    def get_pack_value(self) -> Tuple[Any]:
+    def get_pack_value(self) -> Optional[Tuple[Any]]:
         """Get the value(s) to be packed using :func:`struct.pack`
+
+        Returns ``None`` if no value is associated with the argument,
+        otherwise a tuple (even if there is only one item)
         """
-        value = self.value
-        if isinstance(value, str):
-            value = value.encode()
-        return (value,)
+        return (self.value,)
 
     @classmethod
     def parse(cls, data: bytes) -> Tuple['Argument', bytes]:
@@ -162,8 +162,15 @@ class StringArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, str)
 
+    def get_pack_value(self) -> Optional[Tuple[str]]:
+        if not len(self.value):
+            return None
+        return (self.value.encode(),)
+
     def get_struct_fmt(self) -> str:
         value = self.get_pack_value()
+        if value is None:
+            return ''
         length = get_padded_size(value[0], add_stop_byte=True)
         return f'{length}s'
 
@@ -186,7 +193,7 @@ class BlobArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, bytes)
 
-    def get_pack_value(self) -> Tuple[int, bytes]:
+    def get_pack_value(self) -> Optional[Tuple[int, bytes]]:
         return (len(self.value), self.value)
 
     def get_struct_fmt(self) -> str:
@@ -231,7 +238,7 @@ class TimeTagArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, (TimeTag, datetime.datetime))
 
-    def get_pack_value(self) -> Tuple[int]:
+    def get_pack_value(self) -> Optional[Tuple[int]]:
         value = self.value
         if isinstance(value, datetime.datetime):
             value = TimeTag.from_datetime(value)
@@ -274,7 +281,7 @@ class RGBArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, ColorRGBA)
 
-    def get_pack_value(self) -> Tuple[int]:
+    def get_pack_value(self) -> Optional[Tuple[int]]:
         return (self.value.to_uint64(),)
 
     @classmethod
@@ -285,6 +292,9 @@ class RGBArgument(Argument):
 class BoolArgument(Argument):
     struct_fmt: ClassVar[str] = ''
     py_type: ClassVar[type] = bool
+
+    def get_pack_value(self) -> Optional[Tuple[Any]]:
+        return None
 
 @dataclass
 class TrueArgument(BoolArgument):
@@ -323,6 +333,9 @@ class NilArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return value is None
 
+    def get_pack_value(self) -> Optional[Tuple[Any]]:
+        return None
+
 @dataclass
 class InfinitumArgument(Argument):
     """Infinitum argument (see :class:`~.common.Infinitum`)
@@ -335,6 +348,9 @@ class InfinitumArgument(Argument):
     @classmethod
     def works_for_value(cls, value: Any) -> bool:
         return True
+
+    def get_pack_value(self) -> Optional[Tuple[Any]]:
+        return None
 
 ARGUMENTS = (
     Int32Argument, Float32Argument, StringArgument, BlobArgument, Int64Argument,

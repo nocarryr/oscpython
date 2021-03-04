@@ -28,9 +28,9 @@ class TypeTags(StringArgument):
         """
         self.tags.append(tag)
 
-    def get_pack_value(self) -> Tuple[bytes]:
+    def get_pack_value(self) -> Optional[Tuple[bytes]]:
         if not len(self):
-            return (b'',)
+            return None
         return (',{}'.format(''.join(self.tags)).encode(),)
 
     @classmethod
@@ -51,7 +51,7 @@ class Address(StringArgument):
     """An OSC address pattern
     """
     pattern: str = '/'
-    def get_pack_value(self) -> Tuple[bytes]:
+    def get_pack_value(self) -> Optional[Tuple[bytes]]:
         return (self.pattern.encode(),)
 
 @dataclass
