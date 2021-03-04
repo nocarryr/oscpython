@@ -202,13 +202,13 @@ def test_timestamp_args():
             arg_dt = cls(value=now_dt)
             arg_bytes = arg_dt.build_packet()
             assert len(arg_bytes) % 4 == 0
-            unpacked_dt = struct.unpack('>q', arg_bytes)[0]
+            unpacked_dt = struct.unpack('>Q', arg_bytes)[0]
             tt1 = TimeTag.from_uint64(unpacked_dt)
 
             arg_tt = cls(value=now_tt)
             arg_bytes = arg_tt.build_packet()
             assert len(arg_bytes) % 4 == 0
-            unpacked_tt = struct.unpack('>q', arg_bytes)[0]
+            unpacked_tt = struct.unpack('>Q', arg_bytes)[0]
             tt2 = TimeTag.from_uint64(unpacked_tt)
 
             assert tt1 == tt2

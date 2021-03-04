@@ -231,7 +231,7 @@ class TimeTagArgument(Argument):
     """TimeTag argument (see :class:`~.common.TimeTag`)
     """
     tag: ClassVar[str] = 't'
-    struct_fmt: ClassVar[str] = 'q'
+    struct_fmt: ClassVar[str] = 'Q'
     py_type: ClassVar[type] = TimeTag
 
     @classmethod
