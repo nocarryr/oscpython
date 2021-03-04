@@ -187,6 +187,39 @@ def test_bundle(message_args):
         check_parsed_message(bun_pkt, parsed_pkt)
 
 
+def test_bundle_timestamps(message_args, faker):
+    arg_values, typetags_expected = message_args
+    typetags_length = len(typetags_expected)
+
+    msg_addrs = ('/foo', '/bar/baz')
+
+    for _ in range(1000):
+        dt = faker.date_time()
+        bun = Bundle(timetag=TimeTag.from_datetime(dt))
+        assert bun.timetag.to_datetime() == dt
+
+        for addr in msg_addrs:
+            msg = Message.create(addr, *arg_values)
+            bun.add_packet(msg)
+
+        bun_bytes = bun.build_packet()
+        # print(f'bun_bytes={bun_bytes}')
+        assert len(bun_bytes) % 4 == 0
+
+        tt_bytes = bun_bytes[8:16]
+        tt_val = struct.unpack('>Q', tt_bytes)[0]
+
+        assert TimeTag.from_uint64(tt_val) == bun.timetag
+
+        parsed, _ = Bundle.parse(bun_bytes)
+
+        assert parsed.timetag == bun.timetag
+        assert parsed.timetag.to_datetime() == dt
+
+        for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
+            check_parsed_message(bun_pkt, parsed_pkt)
+
+
 def test_random_addrs_and_args(message_addresses, random_arguments):
     args_per_message = 4
     messages_per_bundle = 8
