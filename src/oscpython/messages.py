@@ -7,7 +7,7 @@ import struct
 
 from oscpython.common import *
 from oscpython.arguments import *
-from oscpython.arguments import TimeTagArgument, StringArgument
+from oscpython.arguments import TimeTagArgument, StringArgument, BlobArgument
 
 __all__ = ('Address', 'Packet', 'Message', 'Bundle')
 
@@ -136,22 +136,13 @@ class Message(Packet):
     def build_packet(self) -> bytes:
         """Construct a byte string for the message and its arguments
         """
-        all_packs = [self.address.pack()]
-        packs = []
         typetags = TypeTags()
-        for arg in self.arguments:
-            typetags.append(arg.tag)
-            pack = arg.pack()
-            if len(pack.format):
-                packs.append(pack)
-        if len(typetags):
-            all_packs.append(typetags.pack())
-        if len(packs):
-            all_packs.extend(packs)
+        pack_list = ArgumentList([self.address, typetags])
 
-        struct_fmt = '>{}'.format(''.join([pack.format for pack in all_packs]))
-        struct_args = [v for pack in all_packs for v in pack.value]
-        return struct.pack(struct_fmt, *struct_args)
+        for arg in self.arguments:
+            pack_list.append(arg)
+            typetags.append(arg.tag)
+        return pack_list.pack()
 
     @classmethod
     def parse(cls, packet_data: bytes) -> Tuple['Message', bytes]:
@@ -192,18 +183,15 @@ class Bundle(Packet):
     def build_packet(self) -> bytes:
         """Construct a byte string for the bundle and the packets it contains
         """
-        tt = TimeTagArgument(value=self.timetag)
-
-        packet_data = [
-            b'#bundle\x00',
-            tt.build_packet(),
-        ]
+        pack_list = ArgumentList([
+            StringArgument(value='#bundle'),
+            TimeTagArgument(value=self.timetag),
+        ])
 
         for packet in self.packets:
             _packet_data = packet.build_packet()
-            packet_data.append(struct.pack('>i', len(_packet_data)))
-            packet_data.append(_packet_data)
-        return b''.join(packet_data)
+            pack_list.append(BlobArgument(_packet_data))
+        return pack_list.pack()
 
     @classmethod
     def parse(cls, packet_data: bytes) -> Tuple['Bundle', bytes]:

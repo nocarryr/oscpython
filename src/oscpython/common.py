@@ -1,8 +1,9 @@
-from typing import Optional, ClassVar, Any, Union, List, Tuple
+from typing import Optional, ClassVar, Any, Union, List, Tuple, Iterable, Sequence
 import enum
 import dataclasses
 from dataclasses import dataclass, field
 import datetime
+import struct
 
 NTP_EPOCH = datetime.datetime(1900, 1, 1)
 UNIX_EPOCH = datetime.datetime.utcfromtimestamp(0)
@@ -13,8 +14,8 @@ TWO_TO_THE_32 = 2 ** 32
 TWO_TO_THE_32_DIV = 1 / TWO_TO_THE_32
 
 __all__ = (
-    'get_padded_size', 'unpack_str_from_bytes', 'StructPacking', 'Client',
-    'TimeTag', 'ColorRGBA', 'Infinitum',
+    'get_padded_size', 'unpack_str_from_bytes', 'StructPacking', 'ArgumentList',
+    'Client', 'TimeTag', 'ColorRGBA', 'Infinitum',
 )
 
 BytesOrString = Union[str, bytes]
@@ -41,6 +42,79 @@ class StructPacking:
     """
     value: Tuple[Any]
     format: str
+
+class ArgumentList:
+    """Container for :class:`~.arguments.Argument`
+    """
+    def __init__(self, initlist=None):
+        if initlist is None:
+            initlist = []
+        else:
+            initlist = initlist.copy()
+        self.items: List['oscpython.arguments.Argument'] = initlist
+
+    def append(self, item: 'oscpython.arguments.Argument'):
+        """Add an :class:`~.arguments.Argument`
+        """
+        self.items.append(item)
+
+    def extend(self, other):
+        """Merge a sequence of :class:`~.arguments.Argument` instances or
+        another :class:`ArgumentList`
+        """
+        if isinstance(other, ArgumentList):
+            other = other.items
+        self.items.extend(other)
+
+    def __getitem__(self, key) -> 'oscpython.arguments.Argument':
+        return self.items[key]
+
+    def __setitem__(self, key, item: 'oscpython.arguments.Argument'):
+        self.items[key] = item
+
+    def __delitem__(self, key):
+        del self.items[key]
+
+    def get_struct_fmt(self) -> str:
+        """Get the struct format string for all arguments in the list
+        """
+        f = tuple(self.formats())
+        s = ''.join(f)
+        return f'>{s}'
+
+    def pack(self) -> bytes:
+        """Pack all arguments in the list to binary using :func:`struct.pack`
+        """
+        fmt = self.get_struct_fmt()
+        return struct.pack(fmt, *self.values())
+
+    def formats(self) -> Iterable[str]:
+        """Iterate over the format strings for each argument
+        """
+        for item in self:
+            fmt = item.get_struct_fmt()
+            if not len(fmt):
+                continue
+            yield fmt
+
+    def values(self) -> Iterable[Any]:
+        """Iterate (flattened) over all argument values
+        (taken from :meth:`.arguments.Argument.get_pack_value`)
+        """
+        for item in self:
+            value = item.get_pack_value()
+            if value is None:
+                continue
+            yield from value
+
+    def __iter__(self):
+        yield from self.items
+
+    def __repr__(self):
+        return f'<{self.__class__}: {self}>'
+
+    def __str__(self):
+        return str(self.items)
 
 @dataclass
 class Client:
