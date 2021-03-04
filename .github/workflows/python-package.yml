@@ -33,7 +33,7 @@ jobs:
       run: |
         pytest --cov=src
     - name: Upload to Coveralls
-      run: coveralls
+      run: coveralls --service=github
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         COVERALLS_FLAG_NAME: run-${{ matrix.python-version }}
