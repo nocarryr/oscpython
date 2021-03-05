@@ -206,7 +206,7 @@ def test_nested_bundles(message_addresses, random_arguments, faker):
         return bun, num_packets
 
     root, total_packets = create_bundle()
-    print(f'{total_packets=}')
+    print(f'total_packets={total_packets}')
     # print(f'{all_addresses=}')
     bun_bytes = root.build_packet()
 
