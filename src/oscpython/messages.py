@@ -103,6 +103,11 @@ class Message(Packet):
 
     @classmethod
     def create(cls, address: Union[Address, str], *args, **kwargs):
+        """Convenience method to create a :class:`Message`
+
+        Creates the :attr:`address` field from the provided address string
+        and adds the message :attr:`arguments` contained in positional args
+        """
         if not isinstance(address, Address):
             address = Address(pattern=address)
         kwargs['address'] = address
