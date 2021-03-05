@@ -207,7 +207,7 @@ class Bundle(Packet):
             packet_data = packet_data[4:]
             if packet_data[0:1] not in (b'/', b'#'):
                 break
-            packet, remaining = Packet.parse(packet_data)
+            packet, remaining = Packet.parse(packet_data[:length])
             bun.add_packet(packet)
             packet_data = packet_data[length:]
             # assert remaining == packet_data
