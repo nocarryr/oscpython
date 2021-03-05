@@ -122,7 +122,7 @@ class Message(Packet):
         If the value is an instance of :class:`~.arguments.Argument` it will
         be added without copying
         """
-        ix = len(self.arguments)
+        ix = len(self)
         if isinstance(value, Argument):
             arg = value
             arg.index = ix
@@ -144,7 +144,7 @@ class Message(Packet):
         typetags = TypeTags()
         pack_list = ArgumentList([self.address, typetags])
 
-        for arg in self.arguments:
+        for arg in self:
             pack_list.append(arg)
             typetags.append(arg.tag)
         return pack_list.pack()
@@ -163,6 +163,15 @@ class Message(Packet):
                 args.append(arg)
         return (cls.create(address, *args), packet_data)
 
+    def __iter__(self):
+        yield from self.arguments
+
+    def __len__(self):
+        return len(self.arguments)
+
+    def __getitem__(self, key):
+        return self.arguments[key].value
+
 @dataclass
 class Bundle(Packet):
     """An OSC Bundle
@@ -180,7 +189,7 @@ class Bundle(Packet):
     def add_packet(self, packet: Packet):
         """Add a :class:`Message` or :class:`Bundle` to the :attr:`packets` list
         """
-        ix = len(self.packets)
+        ix = len(self)
         packet.parent_index = ix
         packet.parent_bundle = self
         self.packets.append(packet)
@@ -193,7 +202,7 @@ class Bundle(Packet):
             TimeTagArgument(value=self.timetag),
         ])
 
-        for packet in self.packets:
+        for packet in self:
             _packet_data = packet.build_packet()
             pack_list.append(BlobArgument(_packet_data))
         return pack_list.pack()
@@ -218,3 +227,12 @@ class Bundle(Packet):
             # assert remaining == packet_data
 
         return (bun, packet_data)
+
+    def __iter__(self):
+        yield from self.packets
+
+    def __len__(self):
+        return len(self.packets)
+
+    def __getitem__(self, key):
+        return self.packets[key]

@@ -6,7 +6,7 @@ from oscpython import arguments
 
 
 def check_message_args(msg: Message, all_arg_bytes: bytes):
-    for arg in msg.arguments:
+    for arg in msg:
         try:
             bytes_expected = arg.build_packet()
         except ValueError as exc:
@@ -20,8 +20,8 @@ def check_message_args(msg: Message, all_arg_bytes: bytes):
 
 def check_parsed_message(expected_msg: Message, parsed_msg: Message):
     assert parsed_msg.address == expected_msg.address
-    assert len(parsed_msg.arguments) == len(expected_msg.arguments)
-    for parg, marg in zip(parsed_msg.arguments, expected_msg.arguments):
+    assert len(parsed_msg) == len(expected_msg)
+    for parg, marg in zip(parsed_msg, expected_msg):
         assert parg.__class__ is marg.__class__
         if isinstance(parg, (arguments.Float32Argument, arguments.Float64Argument)):
             assert parg.value == pytest.approx(marg.value)
@@ -36,6 +36,12 @@ def test_message_arguments(message_args):
     typetags_length = len(typetags_expected)
 
     msg = Message.create(address, *arg_values)
+    assert len(msg) == len(list(msg)) == len(msg.arguments)
+
+    for i, arg in enumerate(msg):
+        assert arg is msg.arguments[i]
+        assert arg.value == msg[i] == arg_values[i]
+
     msg_bytes = msg.build_packet()
     assert len(msg_bytes) % 4 == 0
     address_bytes = msg_bytes[:8]
@@ -73,7 +79,10 @@ def test_bundle(message_args):
     for msg in messages:
         bun.add_packet(msg)
 
-    for i, msg in enumerate(messages):
+    assert len(bun) == len(list(bun)) == len(messages) == len(bun.packets)
+
+    for i, msg in enumerate(bun):
+        assert msg is bun[i] is bun.packets[i]
         assert msg.parent_bundle is bun
         assert msg.parent_index == i
 
@@ -124,7 +133,7 @@ def test_bundle(message_args):
     print(f'parsed={parsed}, remaining={remaining}')
     assert parsed.timetag == bun.timetag
     assert len(parsed.packets) == len(bun.packets)
-    for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
+    for parsed_pkt, bun_pkt in zip(parsed, bun):
         check_parsed_message(bun_pkt, parsed_pkt)
 
 
@@ -157,7 +166,7 @@ def test_bundle_timestamps(message_args, faker):
         assert parsed.timetag == bun.timetag
         assert parsed.timetag.to_datetime() == dt
 
-        for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
+        for parsed_pkt, bun_pkt in zip(parsed, bun):
             check_parsed_message(bun_pkt, parsed_pkt)
 
 def test_nested_bundles(message_addresses, random_arguments, faker):
@@ -228,14 +237,14 @@ def test_nested_bundles(message_addresses, random_arguments, faker):
     def check_bundle(orig_bun, parsed_bun, depth=0):
         assert orig_bun.timetag == parsed_bun.timetag
         assert orig_bun.parent_index == parsed_bun.parent_index
-        assert len(orig_bun.packets) == len(parsed_bun.packets)
+        assert len(orig_bun) == len(parsed_bun)
 
         all_parsed_bundle_dts.add(parsed_bun.timetag.to_datetime())
         if depth not in all_parsed_addresses:
             all_parsed_addresses[depth] = []
         num_packets = 1
 
-        for orig_pkt, parsed_pkt in zip(orig_bun.packets, parsed_bun.packets):
+        for orig_pkt, parsed_pkt in zip(orig_bun, parsed_bun):
             assert isinstance(parsed_pkt, Packet)
             if isinstance(orig_pkt, Message):
                 assert orig_pkt.address == parsed_pkt.address
@@ -269,14 +278,14 @@ def test_random_addrs_and_args(message_addresses, random_arguments):
         arg_values = [next(random_arguments) for _ in range(args_per_message)]
         msg = Message.create(address, *arg_values)
         bun.add_packet(msg)
-        if len(bun.packets) == messages_per_bundle:
+        if len(bun) == messages_per_bundle:
             bun_bytes = bun.build_packet()
 
             parsed, remaining = Packet.parse(bun_bytes)
             # print(f'parsed={parsed}, remaining={remaining}')
             assert parsed.timetag == bun.timetag
-            assert len(parsed.packets) == len(bun.packets)
-            for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
+            assert len(parsed) == len(bun)
+            for parsed_pkt, bun_pkt in zip(parsed, bun):
                 check_parsed_message(bun_pkt, parsed_pkt)
 
             bun = None
