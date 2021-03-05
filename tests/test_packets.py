@@ -223,6 +223,102 @@ def test_bundle_timestamps(message_args, faker):
         for parsed_pkt, bun_pkt in zip(parsed.packets, bun.packets):
             check_parsed_message(bun_pkt, parsed_pkt)
 
+def test_nested_bundles(message_addresses, random_arguments, faker):
+    max_depth = 5
+    messages_per_bundle = 3
+    bundles_per_bundle = 5
+
+    start_dt = faker.date_time()
+
+    address_iter = iter(message_addresses)
+
+    letters = 'abcdefghijkl'
+
+    all_addresses = {}
+    all_addresses_flat = set()
+    all_bundles = {}
+    all_bundle_dts = set()
+    def create_bundle(parent=None, depth=0, parent_address=''):
+        if parent is None:
+            tt = TimeTag.from_datetime(start_dt)
+        else:
+            tt = TimeTag.from_float(parent.timetag.float_seconds + 1)
+
+        bun = Bundle(timetag=tt)
+
+        all_bundle_dts.add(bun.timetag.to_datetime())
+        if depth not in all_addresses:
+            all_addresses[depth] = []
+        num_packets = 1
+
+        for msg_ix in range(messages_per_bundle):
+            args = [next(random_arguments) for _ in range(2)]
+            msg = Message.create(f'{parent_address}/{letters[depth]}-{msg_ix}', *args)
+            all_addresses[depth].append(msg.address.pattern)
+            all_addresses_flat.add(msg.address.pattern)
+            # print(msg.address.pattern)
+            bun.add_packet(msg)
+            num_packets += 1
+
+        if depth < max_depth:
+            for i in range(bundles_per_bundle):
+                child, _num_packets = create_bundle(bun, depth+1, f'{parent_address}/{i}')
+                bun.add_packet(child)
+                num_packets += _num_packets
+
+        return bun, num_packets
+
+    root, total_packets = create_bundle()
+    print(f'{total_packets=}')
+    # print(f'{all_addresses=}')
+    bun_bytes = root.build_packet()
+
+    print('data_len={}'.format(len(bun_bytes)))
+    # print(bun_bytes)
+
+    tt_bytes = bun_bytes[8:16]
+    tt_val = struct.unpack('>Q', tt_bytes)[0]
+
+    assert TimeTag.from_uint64(tt_val) == root.timetag
+
+    parsed, remaining = Bundle.parse(bun_bytes)
+    assert not len(remaining)
+
+    all_parsed_addresses = {}
+    all_parsed_addresses_flat = set()
+    all_parsed_bundle_dts = set()
+
+    def check_bundle(orig_bun, parsed_bun, depth=0):
+        assert orig_bun.timetag == parsed_bun.timetag
+        assert orig_bun.parent_index == parsed_bun.parent_index
+        assert len(orig_bun.packets) == len(parsed_bun.packets)
+
+        all_parsed_bundle_dts.add(parsed_bun.timetag.to_datetime())
+        if depth not in all_parsed_addresses:
+            all_parsed_addresses[depth] = []
+        num_packets = 1
+
+        for orig_pkt, parsed_pkt in zip(orig_bun.packets, parsed_bun.packets):
+            assert isinstance(parsed_pkt, Packet)
+            if isinstance(orig_pkt, Message):
+                assert orig_pkt.address == parsed_pkt.address
+
+                all_parsed_addresses[depth].append(parsed_pkt.address.pattern)
+                all_parsed_addresses_flat.add(parsed_pkt.address.pattern)
+                num_packets += 1
+            else:
+                num_packets += check_bundle(orig_pkt, parsed_pkt, depth+1)
+        return num_packets
+
+    total_parsed = check_bundle(root, parsed)
+    assert total_parsed == total_packets
+    assert all_addresses_flat == all_parsed_addresses_flat
+    assert all_bundle_dts == all_parsed_bundle_dts
+    assert all_addresses == all_parsed_addresses
+
+    repacked = parsed.build_packet()
+    assert repacked == bun_bytes
+
 
 def test_random_addrs_and_args(message_addresses, random_arguments):
     args_per_message = 4
