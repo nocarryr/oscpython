@@ -122,7 +122,7 @@ def test_string_args():
                 r.append(next(it))
             yield ''.join(r)
 
-    for length in range(1, 30):
+    for length in range(1, 256):
         for s in get_strings(20, length):
 
             # StringArgument
