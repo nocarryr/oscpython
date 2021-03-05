@@ -15,7 +15,7 @@ TWO_TO_THE_32_DIV = 1 / TWO_TO_THE_32
 
 __all__ = (
     'get_padded_size', 'unpack_str_from_bytes', 'StructPacking', 'ArgumentList',
-    'Client', 'TimeTag', 'ColorRGBA', 'Infinitum',
+    'Client', 'TimeTag', 'ColorRGBA', 'Infinitum', 'MidiMessage',
 )
 
 BytesOrString = Union[str, bytes]
@@ -226,6 +226,25 @@ class ColorRGBA:
         return cls(**kw)
     def to_uint64(self) -> int:
         return (self.r << 24) + (self.g << 16) + (self.b << 8) + self.a
+
+@dataclass
+class MidiMessage:
+    """A 4-byte MIDI message
+    """
+    port_id: int = 0        #: Port id
+    status_byte: int = 0    #: status_byte
+    data1: int = 0          #: data1
+    data2: int = 0          #: data2
+    @classmethod
+    def from_iterable(cls, it: Iterable) -> 'MidiMessage':
+        attrs = ('port_id', 'status_byte', 'data1', 'data2')
+        kw = {k:v for k,v in zip(attrs, it)}
+        return cls(**kw)
+
+    def as_tuple(self) -> Tuple[int]:
+        attrs = ('port_id', 'status_byte', 'data1', 'data2')
+        return tuple(getattr(self, attr) for attr in attrs)
+
 
 class Infinitum:
     """An OSC "Infinitum" argument, typically referred to as an "Impulse"

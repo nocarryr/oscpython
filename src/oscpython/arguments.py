@@ -1,4 +1,4 @@
-from typing import Optional, ClassVar, Any, Union, Tuple
+from typing import Optional, ClassVar, Any, Union, Tuple, Sequence
 import enum
 import dataclasses
 from dataclasses import dataclass, field
@@ -288,6 +288,26 @@ class RGBArgument(Argument):
     def _transform_parsed_value(cls, value: int) -> ColorRGBA:
         return ColorRGBA.from_uint64(value)
 
+
+@dataclass
+class MidiArgument(Argument):
+    """A 4-byte MIDI message
+    """
+    tag: ClassVar[str] = 'm'
+    struct_fmt: ClassVar[str] = '4B'
+    py_type: ClassVar[type] = MidiMessage
+
+    @classmethod
+    def works_for_value(cls, value: Any) -> bool:
+        return isinstance(value, MidiMessage)
+
+    def get_pack_value(self) -> Optional[Tuple[int]]:
+        return self.value.as_tuple()
+
+    @classmethod
+    def _transform_parsed_value(cls, value: Sequence[int]) -> MidiMessage:
+        return MidiMessage.from_iterable(value)
+
 @dataclass
 class BoolArgument(Argument):
     struct_fmt: ClassVar[str] = ''
@@ -355,7 +375,7 @@ class InfinitumArgument(Argument):
 ARGUMENTS = (
     Int32Argument, Float32Argument, StringArgument, BlobArgument, Int64Argument,
     TimeTagArgument, Float64Argument, CharArgument, RGBArgument, TrueArgument,
-    FalseArgument, NilArgument, InfinitumArgument,
+    FalseArgument, NilArgument, InfinitumArgument, MidiArgument,
 )
 
 ARGUMENTS_BY_TAG = {_cls.tag:_cls for _cls in ARGUMENTS}

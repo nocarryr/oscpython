@@ -4,7 +4,7 @@ import string
 import pytest
 import datetime
 
-from oscpython import arguments, ColorRGBA, Infinitum, TimeTag
+from oscpython import arguments, ColorRGBA, Infinitum, TimeTag, MidiMessage
 
 
 INT32_MAX = (1 << 31) - 1
@@ -183,6 +183,25 @@ def test_color_args():
         assert unpacked_color == color
 
         parsed, _ = cls.parse(arg.build_packet())
+        assert parsed == arg
+
+def test_midi_args():
+    for port, status, data1, data2 in zip(range(128), range(128), range(128), range(128)):
+        msg = MidiMessage(port_id=port, status_byte=status, data1=data1, data2=data2)
+        cls = arguments.Argument.get_argument_for_value(msg)
+        assert cls is arguments.MidiArgument
+        arg = cls(value=msg)
+        arg_bytes = arg.build_packet()
+        assert len(arg_bytes) == 4
+        assert arg_bytes[0] == port
+        assert arg_bytes[1] == status
+        assert arg_bytes[2] == data1
+        assert arg_bytes[3] == data2
+
+        unpacked = struct.unpack('>4B', arg_bytes)
+        assert unpacked == arg.get_pack_value()
+        assert MidiMessage.from_iterable(unpacked) == arg.value == msg
+        parsed, _ = cls.parse(arg_bytes)
         assert parsed == arg
 
 def test_timestamp_args():

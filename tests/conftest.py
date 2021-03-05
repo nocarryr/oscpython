@@ -3,7 +3,7 @@ import struct
 import pytest
 
 from oscpython import (
-    Packet, Message, Bundle, TimeTag, ColorRGBA, Infinitum
+    Packet, Message, Bundle, TimeTag, ColorRGBA, Infinitum, MidiMessage,
 )
 from oscpython import arguments
 
@@ -64,5 +64,8 @@ def random_arguments(faker):
             elif arg_cls is arguments.RGBArgument:
                 rgba = {k:faker.pyint(max_value=255) for k in ['r','g','b','a']}
                 value = ColorRGBA(**rgba)
+            elif arg_cls is arguments.MidiArgument:
+                values = [faker.pyint(max_value=127) for _ in range(4)]
+                value = MidiMessage.from_iterable(values)
             yield arg_cls(value=value)
     return gen_args()

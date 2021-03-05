@@ -39,6 +39,12 @@ ColorRGBA Class
 .. autoclass:: ColorRGBA
     :members:
 
+MidiMessage Class
+-----------------
+
+.. autoclass:: MidiMessage
+    :members:
+
 
 Infinitum Class
 ---------------

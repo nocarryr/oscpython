@@ -75,6 +75,13 @@ RGBArgument Class
     :members:
 
 
+MidiArgument Class
+------------------
+
+.. autoclass:: MidiArgument
+    :members:
+
+
 TrueArgument Class
 ------------------
 
