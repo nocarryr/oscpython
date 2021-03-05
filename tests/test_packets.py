@@ -152,10 +152,12 @@ def test_bundle(message_args):
 
     payload_bytes = bun_bytes[16:]
     all_msg_bytes = []
+    all_msg_lengths = []
 
     while len(payload_bytes):
         msg_size = struct.unpack('>i', payload_bytes[:4])[0]
         print(f'msg_size={msg_size}')
+        all_msg_lengths.append(msg_size)
         payload_bytes = payload_bytes[4:]
         msg_bytes = payload_bytes[:msg_size]
         payload_bytes = payload_bytes[msg_size:]
@@ -163,7 +165,7 @@ def test_bundle(message_args):
 
     assert len(all_msg_bytes) == len(messages)
 
-    for msg, addr, msg_bytes in zip(messages, msg_addrs, all_msg_bytes):
+    for msg, addr, msg_bytes, msg_size in zip(messages, msg_addrs, all_msg_bytes, all_msg_lengths):
         print(f'msg={msg}, msg_bytes={msg_bytes}')
         assert msg_bytes.startswith(addr)
         if msg.address.pattern == '/no/args':
@@ -177,7 +179,9 @@ def test_bundle(message_args):
             all_arg_bytes = msg_bytes[start_ix:]
             check_message_args(msg, all_arg_bytes)
 
-        assert msg.build_packet() == msg_bytes
+        msg_repacked = msg.build_packet()
+        assert msg_repacked == msg_bytes
+        assert len(msg_repacked) == msg_size
 
     parsed, remaining = Packet.parse(bun_bytes)
     print(f'parsed={parsed}, remaining={remaining}')
