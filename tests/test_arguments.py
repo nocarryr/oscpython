@@ -172,7 +172,7 @@ def test_const_args():
         assert 'Cannot pack empty argument' in str(excinfo.value)
 
 def test_color_args():
-    for r, g, b, a in zip(range(255), range(255), range(255), range(255)):
+    for r, g, b, a in zip(range(256), range(256), range(256), range(256)):
         color = ColorRGBA(r=r, g=g, b=b, a=a)
         cls = arguments.Argument.get_argument_for_value(color)
         assert cls is arguments.RGBArgument
