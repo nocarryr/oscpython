@@ -110,5 +110,14 @@ InfinitumArgument Class
     :members:
 
 
-.. autoclass:: InvalidArgumentError
+Exceptions
+----------
+
+.. autoclass:: ArgumentError
+    :members:
+
+.. autoclass:: ArgumentTypeError
+    :members:
+
+.. autoclass:: ArgumentValueError
     :members:

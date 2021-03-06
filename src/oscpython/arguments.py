@@ -9,8 +9,11 @@ import struct
 from oscpython.common import *
 
 __all__ = (
-    'InvalidArgumentError', 'Argument', 'ARGUMENTS', 'ARGUMENTS_BY_TAG',
+    'ArgumentError', 'ArgumentTypeError', 'ArgumentValueError',
+    'Argument', 'ARGUMENTS', 'ARGUMENTS_BY_TAG',
 )
+
+UINT32_MAX = (1 << 32) - 1
 
 INT32_MAX = (1 << 31) - 1
 INT32_MIN = (1 << 31) * -1
@@ -19,12 +22,22 @@ INT64_MAX = (1 << 63) - 1
 INT64_MIN = (1 << 63) * -1
 
 
-class InvalidArgumentError(Exception):
-    def __init__(self, value):
+class ArgumentError(Exception):
+    msg: Optional[str]
+    def __init__(self, value: Any, msg: Optional[str] = None):
         self.value = value
+        self.msg = msg
     def __str__(self):
-        return f'value = "{self.value!r}"'
+        s = f'value = "{self.value!r}"'
+        if self.msg is not None:
+            s = f'{self.msg} ({s})'
+        return s
 
+class ArgumentTypeError(ArgumentError):
+    pass
+
+class ArgumentValueError(ArgumentError):
+    pass
 
 
 @dataclass
@@ -40,6 +53,9 @@ class Argument:
     @classmethod
     def get_argument_for_value(cls, value: Any) -> 'Argument':
         """Get an :class:`Argument` subclass to handle the given value
+
+        Raises:
+            ArgumentTypeError: If the given type is not supported
         """
         if value is True:
             return TrueArgument
@@ -52,13 +68,16 @@ class Argument:
 
         tp = type(value)
         if tp not in ARGUMENTS_BY_TYPE:
-            raise InvalidArgumentError(value)
+            raise ArgumentTypeError(value, 'Unknown Type')
 
         arg_classes = ARGUMENTS_BY_TYPE[tp]
         for arg_cls in arg_classes.values():
             if arg_cls.works_for_value(value):
                 return arg_cls
-        raise InvalidArgumentError(value)
+        raise ArgumentTypeError(value)
+
+    def __post_init__(self):
+        self.validate_value()
 
     @classmethod
     def works_for_value(cls, value: Any) -> bool:
@@ -66,6 +85,14 @@ class Argument:
         and its type
         """
         raise NotImplementedError
+
+    def validate_value(self):
+        """Perform value checks (used by subclasses)
+
+        Raises:
+            ArgumentValueError: If the :attr:`value` is invalid
+        """
+        pass
 
     def get_struct_fmt(self) -> str:
         """Return the format string for :func:`struct.pack` matching the current
@@ -138,6 +165,11 @@ class Int32Argument(Argument):
             return False
         return INT32_MIN <= value <= INT32_MAX
 
+    def validate_value(self):
+        if INT32_MIN <= self.value <= INT32_MAX:
+            return
+        raise ArgumentValueError(self.value, f'Must be {INT32_MIN} <= value <= {INT32_MAX}')
+
 @dataclass
 class Float32Argument(Argument):
     """32-bit float argument
@@ -193,6 +225,12 @@ class BlobArgument(Argument):
     def works_for_value(cls, value: Any) -> bool:
         return isinstance(value, bytes)
 
+    def validate_value(self):
+        # it would be interesting if this ever evaluated as True
+        # ( the blob would use > 4GB of memory )
+        if len(self.value) > UINT32_MAX: # pragma: no cover
+            raise ArgumentValueError(self.value, f'Blob length must be <= {UINT32_MAX}')
+
     def get_pack_value(self) -> Optional[Tuple[int, bytes]]:
         return (len(self.value), self.value)
 
@@ -224,7 +262,14 @@ class Int64Argument(Int32Argument):
 
     @classmethod
     def works_for_value(cls, value: Any) -> bool:
-        return isinstance(value, int)
+        if not isinstance(value, int):
+            return False
+        return INT64_MIN <= value <= INT64_MAX
+
+    def validate_value(self):
+        if INT64_MIN <= self.value <= INT64_MAX:
+            return
+        raise ArgumentValueError(self.value, f'Must be {INT64_MIN} <= value <= {INT64_MAX}')
 
 @dataclass
 class TimeTagArgument(Argument):
@@ -271,6 +316,10 @@ class CharArgument(Argument):
 
     def get_pack_value(self) -> Optional[Tuple[bytes]]:
         return (self.value.encode(),)
+
+    def validate_value(self):
+        if len(self.value) != 1:
+            raise ArgumentValueError(self.value, 'Must be a single character')
 
     @classmethod
     def _transform_parsed_value(cls, value: bytes) -> str:

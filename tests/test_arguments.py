@@ -5,7 +5,9 @@ import pytest
 import datetime
 
 from oscpython import arguments, ColorRGBA, Infinitum, TimeTag, MidiMessage
+from oscpython.arguments import ArgumentError, ArgumentTypeError, ArgumentValueError
 
+UINT32_MAX = (1 << 32) - 1
 
 INT32_MAX = (1 << 31) - 1
 INT32_MIN = (1 << 31) * -1
@@ -61,6 +63,45 @@ def check_arg_packet(arg, struct_fmt, allow_padding=False):
     unpacked = struct.unpack(struct_fmt, arg_bytes)[0]
     assert unpacked == arg.get_pack_value()[0]
     return arg_bytes
+
+def test_argument_types():
+
+    # check for types with no known argument subclass
+    # not an exhaustive list
+    unknown_types = [range(1), set(), {}, 1+1j, object(), type(object())]
+    for obj in unknown_types:
+        with pytest.raises(ArgumentTypeError) as excinfo:
+            cls = arguments.Argument.get_argument_for_value(obj)
+        assert 'unknown' in str(excinfo.value).lower()
+
+    # should be no match for int outside of signed 64-bit range
+    for i in [INT64_MAX + 1, INT64_MIN - 1]:
+        with pytest.raises(ArgumentTypeError) as excinfo:
+            cls = arguments.Argument.get_argument_for_value(i)
+
+    # check value validation
+    for i in [INT32_MAX + 1, INT32_MIN - 1]:
+        with pytest.raises(ArgumentValueError) as excinfo:
+            arg = arguments.Int32Argument(value=i)
+        assert f'{INT32_MIN} <= value <= {INT32_MAX}' in str(excinfo.value)
+
+    for i in [INT64_MAX + 1, INT64_MIN - 1]:
+        with pytest.raises(ArgumentValueError) as excinfo:
+            arg = arguments.Int64Argument(value=i)
+        assert f'{INT64_MIN} <= value <= {INT64_MAX}' in str(excinfo.value)
+
+    with pytest.raises(ArgumentValueError) as excinfo:
+        arg = arguments.CharArgument(value='abc')
+    assert 'single character' in str(excinfo.value).lower()
+
+
+    # warning: never EVER, EVER uncomment this
+    # unless you have a lot of extra time and RAM
+    #
+    # with pytest.raises(ArgumentValueError) as excinfo:
+    #     blobdata = b'\x00' * (UINT32_MAX+1)
+    #     arg = arguments.BlobArgument(value=blobdata)
+    # assert f'length must be <= {UINT32_MAX}' in str(excinfo.value)
 
 def test_int_args():
     int32_fmt = '>i'
