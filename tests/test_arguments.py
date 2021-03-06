@@ -156,6 +156,15 @@ def test_string_args():
             parsed, _ = cls.parse(arg.build_packet())
             assert parsed == arg
 
+    for c in string.printable:
+        arg = arguments.CharArgument(value=c)
+        arg_bytes = arg.build_packet()
+        unpacked = struct.unpack('>s3x', arg_bytes)[0]
+        assert unpacked[:1].decode() == c
+
+        parsed, _ = arguments.CharArgument.parse(arg_bytes)
+        assert parsed == arg
+
 def test_const_args():
     const_map = [
         (True, arguments.TrueArgument),

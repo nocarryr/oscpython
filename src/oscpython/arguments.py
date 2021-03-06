@@ -260,7 +260,7 @@ class CharArgument(Argument):
     """Char argument (a single ascii character)
     """
     tag: ClassVar[str] = 'c'
-    struct_fmt: ClassVar[str] = 'sx'
+    struct_fmt: ClassVar[str] = 'sxxx'
     py_type: ClassVar[type] = str
 
     @classmethod
@@ -268,6 +268,13 @@ class CharArgument(Argument):
         if not isinstance(value, str):
             return False
         return len(value) == 1
+
+    def get_pack_value(self) -> Optional[Tuple[bytes]]:
+        return (self.value.encode(),)
+
+    @classmethod
+    def _transform_parsed_value(cls, value: bytes) -> str:
+        return value[:1].decode()
 
 @dataclass
 class RGBArgument(Argument):
