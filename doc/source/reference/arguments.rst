@@ -12,8 +12,8 @@ Argument Class
     :members:
 
 
-Int32ArgumentClass
-------------------
+Int32Argument Class
+-------------------
 
 .. autoclass:: Int32Argument
     :members:
