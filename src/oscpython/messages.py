@@ -9,13 +9,32 @@ from oscpython.common import *
 from oscpython.arguments import *
 from oscpython.arguments import TimeTagArgument, StringArgument, BlobArgument
 
-__all__ = ('Address', 'Packet', 'Message', 'Bundle')
+__all__ = (
+    'ParseError', 'PacketStartError', 'MessageStartError', 'BundleStartError',
+    'Address', 'Packet', 'Message', 'Bundle',
+)
 
 class ParseError(Exception):
-    def __init__(self, packet_data: bytes):
+    DEFAULT_MSG: ClassVar[Optional[str]] = None
+    def __init__(self, packet_data: bytes, msg: Optional[str] = None):
         self.packet_data = packet_data
+        if msg is None:
+            msg = self.DEFAULT_MSG
+        self.msg = msg
     def __str__(self):
-        return f'Could not parse data: {self.packet_data}'
+        s = f'packet_data = "{self.packet_data!r}"'
+        if self.msg is not None:
+            s = f'{self.msg} ({s})'
+        return s
+
+class PacketStartError(ParseError):
+    DEFAULT_MSG = 'Expected either "/" or "#" in start byte'
+
+class MessageStartError(PacketStartError):
+    DEFAULT_MSG = 'Expected "/" in start byte'
+
+class BundleStartError(PacketStartError):
+    DEFAULT_MSG = 'Expected "#bundle" in start bytes'
 
 @dataclass
 class TypeTags(StringArgument):
@@ -87,7 +106,7 @@ class Packet:
         elif packet_data.startswith(b'#bundle\x00'):
             return Bundle.parse(packet_data)
         else:
-            raise ParseError(packet_data)
+            raise MessageStartError(packet_data)
 
 @dataclass
 class Message(Packet):
@@ -152,7 +171,7 @@ class Message(Packet):
     @classmethod
     def parse(cls, packet_data: bytes) -> Tuple['Message', bytes]:
         if not packet_data.startswith(b'/'):
-            raise ParseError(packet_data)
+            raise MessageStartError(packet_data)
         address, packet_data = unpack_str_from_bytes(packet_data)
         args = []
         if packet_data.startswith(b','):
@@ -210,7 +229,7 @@ class Bundle(Packet):
     @classmethod
     def parse(cls, packet_data: bytes) -> Tuple['Bundle', bytes]:
         if not packet_data.startswith(b'#bundle\x00'):
-            raise ParseError(packet_data)
+            raise BundleStartError(packet_data)
 
         packet_data = packet_data[8:]
         tt, packet_data = TimeTagArgument.parse(packet_data)
@@ -220,7 +239,7 @@ class Bundle(Packet):
             length = struct.unpack('>i', packet_data[:4])[0]
             packet_data = packet_data[4:]
             if packet_data[0:1] not in (b'/', b'#'):
-                break
+                raise PacketStartError(packet_data[:length])
             packet, remaining = Packet.parse(packet_data[:length])
             bun.add_packet(packet)
             packet_data = packet_data[length:]

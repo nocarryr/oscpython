@@ -2,6 +2,9 @@ import struct
 import pytest
 
 from oscpython import Packet, Message, Bundle, TimeTag
+from oscpython.messages import (
+    ParseError, PacketStartError, MessageStartError, BundleStartError,
+)
 from oscpython import arguments
 
 
@@ -289,3 +292,50 @@ def test_random_addrs_and_args(message_addresses, random_arguments):
                 check_parsed_message(bun_pkt, parsed_pkt)
 
             bun = None
+
+def test_invalid_packets():
+    # properly formed message
+    msg_bytes = b'/foo\x00\x00\x00\x00,i\x00\x00\x00\x00\x00\x01'
+
+    # replace start message bytes with invalid data
+    bad_msg_bytes = b'badmsg\x00\x00,i\x00\x00\x00\x00\x00\x01'
+
+    # properly formed bundle
+    bun_bytes = struct.pack('>8sQi16s', b'#bundle\x00', 1, len(msg_bytes), msg_bytes)
+
+    # replace start bundle bytes with invalid data
+    bad_bun_bytes = struct.pack('>8sQi16s', b'badbundl\x00', 1, len(msg_bytes), msg_bytes)
+
+    # properly formed bundle containing invalid message
+    bad_packed_msg_bytes = struct.pack('>8sQi16s', b'#bundle\x00', 1, len(bad_msg_bytes), bad_msg_bytes)
+
+
+    # make sure valid packets parse properly
+    good_msg, _ = Message.parse(msg_bytes)
+    assert good_msg.address.pattern == '/foo'
+    assert good_msg[0] == 1
+
+    good_bundle, _ = Bundle.parse(bun_bytes)
+    assert good_bundle.timetag == TimeTag.Immediately
+    check_parsed_message(good_msg, good_bundle[0])
+
+    # check bad message start exceptions
+    with pytest.raises(PacketStartError):
+        msg, _ = Packet.parse(bad_msg_bytes)
+
+    with pytest.raises(MessageStartError):
+        msg, _ = Message.parse(bad_msg_bytes)
+
+    # check bad bundle start exceptions
+    with pytest.raises(PacketStartError):
+        bun, _ = Packet.parse(bad_bun_bytes)
+
+    with pytest.raises(BundleStartError):
+        bun, _ = Bundle.parse(bad_bun_bytes)
+
+    # check bad message within packed bundle
+    with pytest.raises(PacketStartError):
+        bun, _ = Packet.parse(bad_packed_msg_bytes)
+
+    with pytest.raises(PacketStartError):
+        bun, _ = Bundle.parse(bad_packed_msg_bytes)

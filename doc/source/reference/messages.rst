@@ -40,8 +40,17 @@ Bundle Class
     :members:
 
 
-ParseError Class
-----------------
+Exceptions
+----------
 
 .. autoclass:: ParseError
+    :members:
+
+.. autoclass:: PacketStartError
+    :members:
+
+.. autoclass:: MessageStartError
+    :members:
+
+.. autoclass:: BundleStartError
     :members:
