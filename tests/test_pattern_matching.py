@@ -34,6 +34,12 @@ def mutate_pattern_part(part, should_match=True):
 
 def mutate_patterns(pattern, should_match=True, use_double_slash=False):
     pattern = pattern.lstrip('//').split('/')
+    if should_match:
+        yield '/{}'.format('/'.join(pattern))
+    else:
+        _p = pattern[:]
+        _p[-1] = _p[-1].upper()
+        yield '/{}'.format('/'.join(_p))
     for i, part in enumerate(pattern):
         if use_double_slash:
             p = pattern.copy()
@@ -67,7 +73,10 @@ def test_wildcards(patterns):
     for pattern in patterns['matched']:
         # print(f'{concrete_pattern.pattern} == {pattern}')
         a = Address(pattern=pattern)
-        assert not a.is_concrete
+        if pattern.lower() == patterns['base_pattern']:
+            assert a.is_concrete
+        else:
+            assert not a.is_concrete
         assert concrete_pattern.match(pattern) is True
         assert concrete_pattern.match(a) is True
         assert a.match(concrete_pattern) is True
@@ -75,7 +84,10 @@ def test_wildcards(patterns):
     for pattern in patterns['unmatched']:
         # print(f'{concrete_pattern.pattern} != {pattern}')
         a = Address(pattern=pattern)
-        assert not a.is_concrete
+        if pattern.lower() == patterns['base_pattern']:
+            assert a.is_concrete
+        else:
+            assert not a.is_concrete
         assert concrete_pattern.match(pattern) is False
         assert concrete_pattern.match(a) is False
         assert a.match(concrete_pattern) is False
@@ -85,7 +97,10 @@ def test_wildcards(patterns):
         a = Address(pattern=pattern)
         if '//' in pattern:
             assert a.parts[0] == '//'
-        assert not a.is_concrete
+        if pattern.lower() == patterns['base_pattern']:
+            assert a.is_concrete
+        else:
+            assert not a.is_concrete
         assert concrete_pattern.match(pattern) is True
         assert concrete_pattern.match(a) is True
         assert a.match(concrete_pattern) is True
