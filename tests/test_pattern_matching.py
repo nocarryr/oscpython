@@ -81,6 +81,18 @@ def test_wildcards(patterns):
         assert concrete_pattern.match(a) is True
         assert a.match(concrete_pattern) is True
 
+        truncated_pattern = '/'.join(pattern.split('/')[:-1])
+        a = Address(pattern=truncated_pattern)
+        assert concrete_pattern.match(truncated_pattern) is False
+        assert concrete_pattern.match(a) is False
+        assert a.match(concrete_pattern) is False
+
+        extra_pattern = f'{pattern}/extrapart'
+        a = Address(pattern=extra_pattern)
+        assert concrete_pattern.match(extra_pattern) is False
+        assert concrete_pattern.match(a) is False
+        assert a.match(concrete_pattern) is False
+
     for pattern in patterns['unmatched']:
         # print(f'{concrete_pattern.pattern} != {pattern}')
         a = Address(pattern=pattern)
@@ -89,6 +101,18 @@ def test_wildcards(patterns):
         else:
             assert not a.is_concrete
         assert concrete_pattern.match(pattern) is False
+        assert concrete_pattern.match(a) is False
+        assert a.match(concrete_pattern) is False
+
+        truncated_pattern = '/'.join(pattern.split('/')[:-1])
+        a = Address(pattern=truncated_pattern)
+        assert concrete_pattern.match(truncated_pattern) is False
+        assert concrete_pattern.match(a) is False
+        assert a.match(concrete_pattern) is False
+
+        extra_pattern = f'{pattern}/extrapart'
+        a = Address(pattern=extra_pattern)
+        assert concrete_pattern.match(extra_pattern) is False
         assert concrete_pattern.match(a) is False
         assert a.match(concrete_pattern) is False
 
