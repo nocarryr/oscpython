@@ -1,9 +1,10 @@
-from typing import Optional, ClassVar, Any, Union, List, Tuple
+from typing import Optional, ClassVar, Any, Union, List, Tuple, Sequence
 import enum
 import dataclasses
 from dataclasses import dataclass, field
 import datetime
 import struct
+import re
 
 from oscpython.common import *
 from oscpython.arguments import *
@@ -69,9 +70,149 @@ class TypeTags(StringArgument):
 class Address(StringArgument):
     """An OSC address pattern
     """
-    pattern: str = '/'
+    pattern: str = '/' #: The OSC address string
+    match_strings: ClassVar[str] = '?*[]{}'
     def get_pack_value(self) -> Optional[Tuple[bytes]]:
         return (self.pattern.encode(),)
+
+    @property
+    def is_concrete(self) -> bool:
+        """True if the address is "concrete" (contains no pattern matching
+        characters
+        """
+        r = getattr(self, '_is_concrete', None)
+        if r is not None:
+            return r
+        if '//' in self.pattern:
+            r = False
+        else:
+            r = not any((c in self.pattern for c in self.match_strings))
+        self._is_concrete = r
+        return r
+
+    @property
+    def parts(self) -> Tuple[str]:
+        """A :class:`tuple` of each address element split by ``"/"``
+
+        If the address :attr:`pattern` contains a double slash (``"//"``),
+        it will be present as the first element in the tuple with all preceding
+        parts removed.
+        """
+        if '//' in self.pattern:
+            # if there are multiple '//' specifiers, the only relevant
+            # parts should be after the last one
+            pattern = self.pattern.split('//')[-1]
+            parts = ['//']
+            parts.extend(pattern.split('/'))
+            return tuple(parts)
+        return tuple(self.pattern.lstrip('/').split('/'))
+
+    @property
+    def re_parts(self) -> Sequence[Tuple[re.Pattern, bool]]:
+        """A sequence of :attr:`parts` processed by :meth:`compile_re`
+        """
+        parts = getattr(self, '_re_parts', None)
+        if parts is not None:
+            return parts
+        parts = self.parts
+        if parts[0] == '//':
+            parts = parts[1:]
+        self._re_parts = tuple((self.compile_re(part) for part in parts))
+        return self._re_parts
+
+    def match(self, other: Union['Address', str]) -> bool:
+        """Match this address with another using pattern-matching rules
+
+        Arguments:
+            other: Either a :class:`str` or :class:`Address` instance
+
+        Returns:
+            bool: ``True`` if the given address matches
+        """
+        if not isinstance(other, Address):
+            other = Address(pattern=other)
+        if self.is_concrete and other.is_concrete:
+            return self.pattern == other.pattern
+        elif not self.is_concrete and not other.is_concrete:
+            raise ValueError('At least one address must be concrete')
+
+        parts, oth_parts = self.re_parts, other.re_parts
+        if '//' not in self.pattern and '//' not in other.pattern:
+            if len(parts) != len(oth_parts):
+                return False
+            for part_t, oth_part_t in zip(parts, oth_parts):
+                part, part_wc = part_t
+                oth_part, oth_part_wc = oth_part_t
+
+                if part_wc:
+                    if not part.fullmatch(oth_part.pattern):
+                        return False
+                elif oth_part_wc:
+                    if not oth_part.fullmatch(part.pattern):
+                        return False
+                else:
+                    if part.pattern != oth_part.pattern:
+                        return False
+            return True
+
+        if '//' in self.pattern:
+            pl1, pl2 = parts, oth_parts
+        elif '//' in other.pattern:
+            pl1, pl2 = oth_parts, parts
+        i = 0
+        for p2 in pl2:
+            try:
+                p1 = pl1[i]
+            except IndexError:
+                break
+            p1p, p1_wc = p1
+            p2p, p2_wc = p2
+            if p1_wc:
+                if p1p.fullmatch(p2p.pattern):
+                    i += 1
+            elif p2_wc:
+                if p2p.fullmatch(p1p.pattern):
+                    i += 1
+            else:
+                if p1p.pattern == p2p.pattern:
+                    i += 1
+        return len(pl1) == i
+
+    @staticmethod
+    def compile_re(pattern: str) -> Tuple[re.Pattern, bool]:
+        """Create a regular expression used for OSC address pattern matching
+
+        The pattern is only valid within the parts separated by forward slash
+        (``"/"``)
+
+        Returns
+        -------
+        pattern : re.Pattern
+            The compiled pattern
+        has_wildcard : bool
+            ``True`` if the pattern contains any pattern-matching characters
+
+        """
+        # osc_style = [r'[a-d]', r'[!a-d]', r'{foo,bar}', r'a?c']
+        # re_style = [r'[a-d]', r'[^a-d]', r'(foo|bar)', r'a\w?c']
+        has_wildcard = False
+        if '*' in pattern:
+            pattern = pattern.replace('*', r'[\w|\+]*')
+            has_wildcard = True
+        if '[' in pattern:
+            has_wildcard = True
+        if '[!' in pattern:
+            pattern = pattern.replace('[!', '[^')
+            has_wildcard = True
+        for c, d in zip('{,}', '(|)'):
+            if c in pattern:
+                pattern = pattern.replace(c, d)
+                has_wildcard = True
+        if '?' in pattern:
+            pattern = pattern.replace('?', r'\w?')
+            has_wildcard = True
+        return re.compile(pattern), has_wildcard
+
 
 @dataclass
 class Packet:
