@@ -70,6 +70,7 @@ def test_wildcards(patterns):
         assert not a.is_concrete
         assert concrete_pattern.match(pattern) is True
         assert concrete_pattern.match(a) is True
+        assert a.match(concrete_pattern) is True
 
     for pattern in patterns['unmatched']:
         # print(f'{concrete_pattern.pattern} != {pattern}')
@@ -77,6 +78,7 @@ def test_wildcards(patterns):
         assert not a.is_concrete
         assert concrete_pattern.match(pattern) is False
         assert concrete_pattern.match(a) is False
+        assert a.match(concrete_pattern) is False
 
     for pattern in patterns['double_slash']:
         # print(f'{concrete_pattern.pattern} == {pattern}')
@@ -86,3 +88,4 @@ def test_wildcards(patterns):
         assert not a.is_concrete
         assert concrete_pattern.match(pattern) is True
         assert concrete_pattern.match(a) is True
+        assert a.match(concrete_pattern) is True
