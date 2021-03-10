@@ -19,6 +19,13 @@ Address Class
     :members:
 
 
+AddressPart Class
+-----------------
+
+.. autoclass:: AddressPart
+    :members:
+
+
 Packet Class
 ------------
 

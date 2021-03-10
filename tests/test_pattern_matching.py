@@ -1,6 +1,6 @@
 import pytest
 
-from oscpython import Address
+from oscpython.messages import Address, AddressPart
 
 
 def mutate_pattern_part(part, should_match=True):
@@ -64,10 +64,36 @@ def patterns():
     )
     return d
 
+def test_address_manipulation():
+    address = Address(pattern='/foo/bar')
+    assert len(address) == 2
+    address = address / 'baz'
+    assert len(address) == 3
+    assert address.pattern == '/foo/bar/baz'
+
+    assert address[0].pattern == '/foo'
+    assert address[1].pattern == 'bar'
+    assert address[2].pattern == 'baz'
+
+    foobarbaz = address[:]
+    assert foobarbaz.pattern == address.pattern
+    foobar = address[:2]
+    assert foobar.pattern == '/foo/bar'
+    barbaz = address[1:3]
+    assert barbaz.pattern == 'bar/baz'
+
+    for part1, part2, s in zip(address, foobarbaz, ['foo', 'bar', 'baz']):
+        assert part1.part == part2.part == s
+        assert part1 == part2
+        assert part1 != AddressPart(part='a', is_root=False)
+        assert part2 != AddressPart(part='a', is_root=True)
+        assert part1 != AddressPart(part=s, is_root=not part1.is_root)
+        assert part2 != AddressPart(part=s, is_root=not part1.is_root)
+
 
 def test_wildcards(patterns):
     concrete_pattern = Address(pattern=patterns['base_pattern'])
-    assert concrete_pattern.parts == tuple(patterns['base_pattern'].split('/')[1:])
+    assert concrete_pattern.pattern_parts == tuple(patterns['base_pattern'].split('/')[1:])
     assert concrete_pattern.is_concrete
 
     for pattern in patterns['matched']:
@@ -120,7 +146,7 @@ def test_wildcards(patterns):
         # print(f'{concrete_pattern.pattern} == {pattern}')
         a = Address(pattern=pattern)
         if '//' in pattern:
-            assert a.parts[0] == '//'
+            assert a.parts[0].part.startswith('/')
         if pattern.lower() == patterns['base_pattern']:
             assert a.is_concrete
         else:
