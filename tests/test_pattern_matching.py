@@ -1,6 +1,7 @@
 import pytest
 
 from oscpython.messages import Address, AddressPart
+from oscpython.address import AddressSpace, AddressNode
 
 
 def mutate_pattern_part(part, should_match=True):
@@ -154,3 +155,39 @@ def test_wildcards(patterns):
         assert concrete_pattern.match(pattern) is True
         assert concrete_pattern.match(a) is True
         assert a.match(concrete_pattern) is True
+
+def test_address_node_wildcards(patterns):
+    space = AddressSpace()
+    root, concrete_node = space.create_from_address(patterns['base_pattern'])
+    assert concrete_node.address.is_concrete
+
+    def get_match(pattern):
+        r = [node for node in space.match(pattern)]
+        if not len(r):
+            return None
+        else:
+            assert len(r) == 1
+            return r[0]
+
+    for pattern in patterns['matched']:
+        assert get_match(pattern) is concrete_node
+
+        truncated_pattern = '/'.join(pattern.split('/')[:-1])
+        assert get_match(truncated_pattern) is concrete_node.parent
+
+        extra_pattern = f'{pattern}/extrapart'
+        assert get_match(extra_pattern) is None
+
+
+    for pattern in patterns['unmatched']:
+        assert get_match(pattern) is None
+
+        extra_pattern = f'{pattern}/extrapart'
+        assert get_match(extra_pattern) is None
+
+
+    for pattern in patterns['double_slash']:
+        if '//' not in pattern or pattern.startswith('//'):
+            assert get_match(pattern) is concrete_node
+        else:
+            assert get_match(pattern) is None
