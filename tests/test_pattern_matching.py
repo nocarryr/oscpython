@@ -1,7 +1,6 @@
 import pytest
 
-from oscpython.messages import Address, AddressPart
-from oscpython.address import AddressSpace, AddressNode
+from oscpython.address import Address, AddressPart, AddressSpace, AddressNode
 
 
 def mutate_pattern_part(part, should_match=True):

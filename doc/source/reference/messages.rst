@@ -12,20 +12,6 @@ TypeTags Class
     :members:
 
 
-Address Class
--------------
-
-.. autoclass:: Address
-    :members:
-
-
-AddressPart Class
------------------
-
-.. autoclass:: AddressPart
-    :members:
-
-
 Packet Class
 ------------
 

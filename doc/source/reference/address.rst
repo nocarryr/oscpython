@@ -5,6 +5,20 @@
 ================================
 
 
+Address Class
+-------------
+
+.. autoclass:: Address
+    :members:
+
+
+AddressPart Class
+-----------------
+
+.. autoclass:: AddressPart
+    :members:
+
+
 AddressSpace Class
 ------------------
 

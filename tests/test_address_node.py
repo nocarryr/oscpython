@@ -1,6 +1,5 @@
 import pytest
-from oscpython.address import AddressSpace, AddressNode
-from oscpython import Address
+from oscpython.address import Address, AddressSpace, AddressNode
 
 def test_add_and_reparent():
     sp = AddressSpace()
