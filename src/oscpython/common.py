@@ -123,6 +123,18 @@ class Client:
     address: str    #: The host address
     port: int       #: The service port
 
+    def to_tuple(self) -> Tuple[str, int]:
+        """Create a tuple of ``(address, port)``
+        """
+        return (self.address, self.port)
+
+    @classmethod
+    def from_tuple(cls, addr: Tuple[str, int]) -> 'Client':
+        """Create a :class:`Client` from a tuple of ``(address, port)``
+        """
+        address, port = addr
+        return cls(address=address, port=port)
+
 
 @dataclass
 class TimeTag:
