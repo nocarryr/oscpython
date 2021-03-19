@@ -10,10 +10,10 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
+sys.path.append(os.path.abspath('./ext'))
 
 # -- Project information -----------------------------------------------------
 
@@ -36,6 +36,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
+    'eventobj',
 ]
 autodoc_member_order = 'bysource'
 autodoc_default_options = {
@@ -68,4 +69,5 @@ html_css_files = [
 
 intersphinx_mapping = {
     'python':('https://docs.python.org/', None),
+    'pydispatch': ('https://python-dispatch.readthedocs.io/en/latest/', None),
 }

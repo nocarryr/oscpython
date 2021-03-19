@@ -1,9 +1,12 @@
 from typing import (
     Optional, Sequence, List, Dict, Tuple, Union, Iterator, Any,
-    KeysView, ValuesView, ItemsView, ClassVar,
+    KeysView, ValuesView, ItemsView, ClassVar, Callable,
 )
 from dataclasses import dataclass, field
 import re
+
+from pydispatch import Dispatcher
+from pydispatch.dispatch import Event
 
 from oscpython.arguments import StringArgument
 
@@ -319,16 +322,32 @@ class Address(StringArgument):
         return i == len(wc_parts)
 
 
-class AddressSpace:
+class AddressSpace(Dispatcher):
     """An OSC address space, container for root (top-level)
     :class:`AddressNode` instances
 
     Attributes:
         root_nodes: Mapping of root nodes using the :attr:`~AddressNode.name`
             as keys
+
+    :Events:
+
+        .. event:: on_message(address: Address, message: Message, timetag: TimeTag)
+
+            Fired when a message is received by a :class:`server <.transport.BaseServer>`.
+
+            :param address: The OSC address matching the message
+            :type address: oscpython.address.Address
+            :param message: The OSC message
+            :type message: oscpython.messages.Message
+            :param timetag: The timestamp of when the message was received
+            :type timetag: oscpython.common.TimeTag
+
     """
 
     root_nodes: Dict[str, 'AddressNode']
+
+    _events_ = ['on_message']
 
     def __init__(self):
         self.root_nodes = {}
@@ -492,7 +511,7 @@ class AddressNode:
 
     __slots__ = (
         '__name', '__parent', '__address', '__address_space', '__address_part',
-        '__part_index', 'children',
+        '__part_index', 'children', '__event_handler',
     )
 
     def __init__(self, name: str,
@@ -504,6 +523,7 @@ class AddressNode:
         self.__address_space = None
         self.__address_part = None
         self.__part_index = None
+        self.__event_handler = None
         self.children = {}
 
     @property
@@ -603,6 +623,80 @@ class AddressNode:
         """``True`` if the node is at the root of the tree (has no :attr:`parent`)
         """
         return self.parent is None
+
+    @property
+    def event_handler(self) -> Optional[Event]:
+        """An :class:`~pydispatch.dispatch.Event` instance used for callbacks
+        """
+        return self.__event_handler
+
+    @property
+    def has_callbacks(self) -> bool:
+        """``True`` if any callbacks have been set on the node
+        """
+        h = self.event_handler
+        if h is None:
+            return False
+        if len(h.listeners) or len(h.aio_listeners):
+            return True
+        return False
+
+    def add_callback(self, cb: Callable, aio_loop: Optional['asyncio.BaseEventLoop'] = None):
+        """Add a method, function or :term:`coroutine function` to the :attr:`event_handler`
+
+        Arguments:
+            cb: The callback function
+            aio_loop: If the callback is a :term:`coroutine function`, the
+                :class:`event loop <asyncio.BaseEventLoop>` associated with it
+
+        The callback should accept the signature::
+
+            def cb(node: oscpython.address.AddressNode,
+                   message: oscpython.messages.Message,
+                   timetag: oscpython.common.TimeTag) -> None:
+                pass
+
+
+        :Callback Arguments:
+
+            node: :class:`AddressNode`
+                The node instance that originated the event
+            message: :class:`.messages.Message`
+                The received message
+            timetag: :class:`.common.TimeTag`
+                Timestamp of when the message was received.
+                See :meth:`.transport.BaseServer.handle_packet` for details
+
+        """
+        h = self.event_handler
+        if h is None:
+            h = self.__event_handler = Event(self.name)
+        h.add_listener(cb, __aio_loop__=aio_loop)
+
+    def remove_callback(self, cb: Callable):
+        """Remove a callback previously attached by :meth:`add_callback`
+        """
+        self.event_handler.remove_listener(cb)
+        if not self.has_callbacks:
+            self.__event_handler = None
+
+    def dispatch(self, message: 'oscpython.messages.Message', timetag: 'oscpython.common.TimeTag'):
+        """Called when a message is received that matches this node :attr:`address`
+
+        Triggers any callbacks registered in the :attr:`event_handler` and emits
+        the ``'on_message'`` event on the :attr:`address_space`
+
+        Arguments:
+            message: The received message
+            timetag: Timestamp of when the message was received.
+
+        """
+        h = self.event_handler
+        if h is not None:
+            h(self, message, timetag)
+        sp = self.address_space
+        if sp is not None:
+            sp.emit('on_message', self.address, message, timetag)
 
     def find(self, address: StrOrAddress) -> Optional['AddressNode']:
         """Search for a node matching the given relative address

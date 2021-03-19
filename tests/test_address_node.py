@@ -240,3 +240,72 @@ def test_packet_creation(message_addresses, random_arguments, faker):
         assert bun_msg.address == node.address
         assert bun_msg.address is not node.address
         assert tuple([arg.value for arg in bun_msg]) == arg_vals
+
+def test_node_dispatch(message_addresses, random_arguments, faker):
+
+    class SpaceListener:
+        def __init__(self, address_space):
+            self.address_space = address_space
+            self.results = []
+            self.address_space.bind(on_message=self.callback)
+        def get_result(self):
+            r = self.results[0]
+            self.results = self.results[1:]
+            return r
+        def callback(self, address, msg, timetag):
+            self.results.append((address, msg, timetag))
+
+    class NodeListener:
+        def __init__(self):
+            self.results = []
+        def bind_to_node(self, node):
+            self.results.clear()
+            node.add_callback(self.callback)
+        def unbind_node(self, node):
+            node.remove_callback(self.callback)
+            self.results.clear()
+        def get_result(self):
+            r = self.results[0]
+            self.results = self.results[1:]
+            return r
+        def callback(self, node, msg, timetag):
+            self.results.append((node, msg, timetag))
+
+    sp = AddressSpace()
+    sp_listener = SpaceListener(sp)
+    node_listener = NodeListener()
+
+    base_tt = TimeTag.now()
+
+    for i, addr in enumerate(message_addresses):
+        tt = TimeTag(seconds=base_tt.seconds + i, fraction=base_tt.fraction)
+
+        root, node = sp.create_from_address(addr)
+        assert not node.has_callbacks
+        assert node.event_handler is None
+        node_listener.bind_to_node(node)
+        assert node.has_callbacks
+        assert node.event_handler is not None
+
+        client = Client(address=faker.ipv4(), port=faker.port_number())
+        args = tuple([next(random_arguments) for _ in range(3)])
+        arg_vals = tuple([arg.value for arg in args])
+
+        msg = node.create_message(*args, remote_client=client)
+        node.dispatch(msg, tt)
+
+        sp_result = sp_listener.get_result()
+        r_addr, r_msg, r_tt = sp_result
+        assert r_addr == node.address
+        assert r_msg == msg
+        assert r_tt == tt
+
+        node_result = node_listener.get_result()
+        r_node, r_msg, r_tt = node_result
+        assert r_node is node
+        assert r_msg == msg
+        assert r_tt == tt
+
+        node_listener.unbind_node(node)
+        assert not node.has_callbacks
+        assert node.event_handler is None
