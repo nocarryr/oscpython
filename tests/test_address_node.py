@@ -1,5 +1,6 @@
 import pytest
 from oscpython.address import Address, AddressSpace, AddressNode
+from oscpython import Client, TimeTag
 
 def test_add_and_reparent():
     sp = AddressSpace()
@@ -212,3 +213,30 @@ def test_node_tree(message_addresses):
 
 
     assert len(message_addresses) ==  len(all_addr_nodes)
+
+def test_packet_creation(message_addresses, random_arguments, faker):
+    sp = AddressSpace()
+
+    base_tt = TimeTag.now()
+
+    for i, addr in enumerate(message_addresses):
+        root, node = sp.create_from_address(addr)
+        client = Client(address=faker.ipv4(), port=faker.port_number())
+        args = tuple([next(random_arguments) for _ in range(3)])
+        arg_vals = tuple([arg.value for arg in args])
+
+        msg = node.create_message(*args, remote_client=client)
+        assert msg.remote_client == client
+        assert msg.address == node.address
+        assert msg.address is not node.address
+        assert tuple([arg.value for arg in msg]) == arg_vals
+
+        tt = TimeTag(seconds=base_tt.seconds + i, fraction=base_tt.fraction)
+        bun = node.create_bundled_message(*args, remote_client=client, timetag=tt)
+        assert bun.timetag == tt
+        assert bun.remote_client == client
+        assert len(bun) == 1
+        bun_msg = bun[0]
+        assert bun_msg.address == node.address
+        assert bun_msg.address is not node.address
+        assert tuple([arg.value for arg in bun_msg]) == arg_vals

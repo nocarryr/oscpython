@@ -7,6 +7,17 @@ import re
 
 from oscpython.arguments import StringArgument
 
+messages, Message, Bundle = None, None, None
+def _import_message_classes():
+    global messages, Message, Bundle
+    if messages is not None:
+        return
+    from oscpython import messages as _msg_module
+    messages = _msg_module
+    Message = _msg_module.Message
+    Bundle = _msg_module.Bundle
+
+
 StrOrAddress = Union[str, 'Address']
 
 __all__ = ('Address', 'AddressPart', 'AddressSpace', 'AddressNode')
@@ -242,6 +253,12 @@ class Address(StringArgument):
 
     def __iter__(self):
         yield from self.parts
+
+    def copy(self) -> 'Address':
+        """Create a copy of the instance
+        """
+        cls = self.__class__
+        return cls.from_parts(self.parts)
 
     def join(self, other) -> 'Address':
         """Join the address with either a str or :class:`Address` instance,
@@ -642,6 +659,28 @@ class AddressNode:
         for child in self:
             yield from child.walk()
 
+    def create_message(self, *args, **kwargs) -> 'oscpython.messages.Message':
+        """Create a :class:`~.messages.Message` using this node's :attr:`address`
+
+        Positional and keyword arguments (``*args`` and ``**kwargs``)
+        will be passed directly to :meth:`.messages.Message.create`
+        """
+        _import_message_classes()
+        addr = self.address.copy()
+        return Message.create(addr, *args, **kwargs)
+
+    def create_bundled_message(self, *args, **kwargs) -> 'oscpython.messages.Bundle':
+        """Create a :class:`~.messages.Bundle` containing a :class:`~.messages.Message`
+        using this node's :attr:`address`
+
+        Keyword arguments (``**kwargs``) will be passed to the
+        Bundle's ``__init__`` method and positional arguments (``*args``)
+        will be passed to :meth:`.messages.Message.create`
+        """
+        msg = self.create_message(*args)
+        bun = Bundle(**kwargs)
+        bun.add_packet(msg)
+        return bun
 
     def add_child(self, name: str, cls: Optional[type] = None) -> 'AddressNode':
         """Add a child node to this point in the tree
