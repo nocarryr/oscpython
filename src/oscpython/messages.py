@@ -85,8 +85,13 @@ class Packet:
     """
 
     @classmethod
-    def parse(cls, packet_data: bytes) -> Tuple['Packet', bytes]:
+    def parse(cls, packet_data: bytes, **kwargs) -> Tuple['Packet', bytes]:
         """Parse OSC-formatted bytes and build a :class:`Message` or :class:`Bundle`
+
+        Arguments:
+            packet_data: The byte string to parse
+            **kwargs: Keyword arguments to pass when creating :class:`Packet`
+                instances
 
         Returns a tuple of:
             :class:`Packet`
@@ -95,9 +100,9 @@ class Packet:
                 Any remaining bytes after the packet data
         """
         if packet_data.startswith(b'/'):
-            return Message.parse(packet_data)
+            return Message.parse(packet_data, **kwargs)
         elif packet_data.startswith(b'#bundle\x00'):
-            return Bundle.parse(packet_data)
+            return Bundle.parse(packet_data, **kwargs)
         else:
             raise MessageStartError(packet_data)
 
@@ -162,7 +167,7 @@ class Message(Packet):
         return pack_list.pack()
 
     @classmethod
-    def parse(cls, packet_data: bytes) -> Tuple['Message', bytes]:
+    def parse(cls, packet_data: bytes, **kwargs) -> Tuple['Message', bytes]:
         if not packet_data.startswith(b'/'):
             raise MessageStartError(packet_data)
         address, packet_data = unpack_str_from_bytes(packet_data)
@@ -173,7 +178,7 @@ class Message(Packet):
                 arg_cls = ARGUMENTS_BY_TAG[tag]
                 arg, packet_data = arg_cls.parse(packet_data)
                 args.append(arg)
-        return (cls.create(address, *args), packet_data)
+        return (cls.create(address, *args, **kwargs), packet_data)
 
     def __iter__(self):
         yield from self.arguments
@@ -220,20 +225,22 @@ class Bundle(Packet):
         return pack_list.pack()
 
     @classmethod
-    def parse(cls, packet_data: bytes) -> Tuple['Bundle', bytes]:
+    def parse(cls, packet_data: bytes, **kwargs) -> Tuple['Bundle', bytes]:
         if not packet_data.startswith(b'#bundle\x00'):
             raise BundleStartError(packet_data)
 
         packet_data = packet_data[8:]
         tt, packet_data = TimeTagArgument.parse(packet_data)
-        bun = cls(timetag=tt.value)
+        bun_kwargs = kwargs.copy()
+        bun_kwargs['timetag'] = tt.value
+        bun = cls(**bun_kwargs)
 
         while len(packet_data):
             length = struct.unpack('>i', packet_data[:4])[0]
             packet_data = packet_data[4:]
             if packet_data[0:1] not in (b'/', b'#'):
                 raise PacketStartError(packet_data[:length])
-            packet, remaining = Packet.parse(packet_data[:length])
+            packet, remaining = Packet.parse(packet_data[:length], **kwargs)
             bun.add_packet(packet)
             packet_data = packet_data[length:]
             # assert remaining == packet_data
