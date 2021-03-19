@@ -118,6 +118,18 @@ class Message(Packet):
     """OSC arguments for the message
     """
 
+    @property
+    def timetag(self) -> 'TimeTag':
+        """:class:`~.common.TimeTag` associated with the message
+
+        If present, the :attr:`~Bundle.timetag` of the :attr:`~Packet.parent_bundle`
+        is used. Otherwise, this will always be :attr:`.common.TimeTag.Immediately`
+        """
+        p = self.parent_bundle
+        if p is not None:
+            return p.timetag
+        return TimeTag.Immediately
+
     @classmethod
     def create(cls, address: Union[Address, str], *args, **kwargs):
         """Convenience method to create a :class:`Message`
