@@ -196,12 +196,27 @@ class TimeTag:
         return cls.from_epoch(dt.timestamp())
 
     @classmethod
+    def now(cls) -> 'TimeTag':
+        """Create a :class:`TimeTag` from the current date and time
+        """
+        now = datetime.datetime.now()
+        return cls.from_datetime(now)
+
+    @classmethod
+    def utcnow(cls) -> 'TimeTag':
+        """Create a :class:`TimeTag` using the current UTC date and time
+        """
+        now = datetime.datetime.utcnow()
+        return cls.from_datetime(now)
+
+    @classmethod
     def from_uint64(cls, value: int) -> 'TimeTag':
         kw = {
             'seconds':value >> 32,
             'fraction':value & 0xFFFFFFFF,
         }
         return cls(**kw)
+
     def to_uint64(self) -> int:
         return (self.seconds << 32) + (self.fraction & 0xFFFFFFFF)
 

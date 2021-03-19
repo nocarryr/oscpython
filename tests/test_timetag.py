@@ -24,6 +24,12 @@ def test_dt():
     tt2 = TimeTag.from_datetime(dt_utc)
     assert tt2 == tt1
 
+    now_dt, now_tt = datetime.datetime.now(), TimeTag.now()
+    now_dtu, now_ttu = datetime.datetime.utcnow(), TimeTag.utcnow()
+
+    assert now_dt.timestamp() == pytest.approx(now_tt.to_epoch())
+    assert now_dtu.timestamp() == pytest.approx(now_ttu.to_epoch())
+
 def test_ops(faker):
     assert TimeTag.Immediately == TimeTag(seconds=0, fraction=1)
     assert TimeTag(seconds=0, fraction=1) == TimeTag.Immediately
