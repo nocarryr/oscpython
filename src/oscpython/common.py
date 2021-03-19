@@ -205,6 +205,66 @@ class TimeTag:
     def to_uint64(self) -> int:
         return (self.seconds << 32) + (self.fraction & 0xFFFFFFFF)
 
+    def _ordering(self, other) -> int:
+        if isinstance(other, TimeTag):
+            if self.is_immediate:
+                if other.is_immediate:
+                    return 0
+                return -1
+            elif other.is_immediate:
+                return 1
+
+            if self.seconds > other.seconds:
+                return 1
+            elif self.seconds < other.seconds:
+                return -1
+            if self.fraction > other.fraction:
+                return 1
+            elif self.fraction < other.fraction:
+                return -1
+            return 0
+        elif isinstance(other, datetime.datetime):
+            self_dt = self.to_datetime()
+            if self_dt > other:
+                return 1
+            elif self_dt < other:
+                return -1
+            return 0
+        else:
+            return NotImplemented
+
+    def __gt__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r == 1
+    def __lt__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r == -1
+    def __ge__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r == 1 or r == 0
+    def __le__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r == -1 or r == 0
+    def __eq__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r == 0
+    def __ne__(self, other):
+        r = self._ordering(other)
+        if r is NotImplemented:
+            return NotImplemented
+        return r != 0
+
+
 TimeTag.Immediately = TimeTag(seconds=0, fraction=1)
 
 @dataclass

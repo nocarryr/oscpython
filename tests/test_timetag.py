@@ -7,6 +7,7 @@ UTC = datetime.timezone.utc
 TZ = datetime.datetime.now(UTC).astimezone().tzinfo
 
 EPOCH = datetime.datetime(1970, 1, 1, tzinfo=UTC)
+MILLISECOND = datetime.timedelta(microseconds=1000)
 
 def test_dt():
     dt_utc = datetime.datetime(2021, 2, 28, 9, 28, 13, 12345, tzinfo=UTC)
@@ -22,3 +23,52 @@ def test_dt():
 
     tt2 = TimeTag.from_datetime(dt_utc)
     assert tt2 == tt1
+
+def test_ops(faker):
+    assert TimeTag.Immediately == TimeTag(seconds=0, fraction=1)
+    assert TimeTag(seconds=0, fraction=1) == TimeTag.Immediately
+
+    for _ in range(100):
+        dt1 = faker.date_time()
+        ts1 = TimeTag.from_datetime(dt1)
+
+        assert ts1 > TimeTag.Immediately
+        assert ts1 >= TimeTag.Immediately
+        assert TimeTag.Immediately < ts1
+        assert TimeTag.Immediately <= ts1
+        assert TimeTag(seconds=ts1.seconds, fraction=ts1.fraction) == ts1
+
+        assert ts1 == dt1
+
+        for dt2 in [dt1 + MILLISECOND, dt1 - MILLISECOND, faker.date_time()]:
+            ts2 = TimeTag.from_datetime(dt2)
+            assert ts2 == dt2
+
+            assert ts2 > TimeTag.Immediately
+            assert ts2 >= TimeTag.Immediately
+            assert TimeTag.Immediately < ts2
+            assert TimeTag.Immediately <= ts2
+
+            assert ts2 != ts1
+            assert ts2 != dt1
+            assert ts1 != ts2
+            assert ts1 != dt2
+
+            if dt1 > dt2:
+                assert ts1 > ts2
+                assert dt1 > ts2
+                assert ts1 >= ts2
+                assert dt1 >= ts2
+                assert ts2 < ts1
+                assert ts2 < dt1
+                assert ts2 <= ts1
+                assert ts2 <= dt1
+            else:
+                assert ts1 < ts2
+                assert dt1 < ts2
+                assert ts1 <= ts2
+                assert dt1 <= ts2
+                assert ts2 > ts1
+                assert ts2 > dt1
+                assert ts2 >= ts1
+                assert ts2 >= dt1
